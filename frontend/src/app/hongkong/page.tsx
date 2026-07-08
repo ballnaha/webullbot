@@ -42,6 +42,9 @@ import {
 } from '@mui/material';
 
 import Header from 'frontend/components/Header';
+import ConfirmDialog from 'frontend/components/ConfirmDialog';
+import TradeDialog from 'frontend/components/TradeDialog';
+import { useToast } from 'frontend/components/ToastProvider';
 
 import { 
   Play, 
@@ -90,6 +93,7 @@ interface BotStatus {
   strategy: string;
   symbols: string[];
   quantity: number;
+  quantity_hk: number;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -270,19 +274,30 @@ const darkTheme = createTheme({
 });
 
 export default function HongkongHome() {
+  const { showToast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [connected, setConnected] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
 
+  // Custom dialog states
+  const [confirmClearOpen, setConfirmClearOpen] = useState(false);
+  const [clearPending, setClearPending] = useState(false);
+  const [tradeDialogOpen, setTradeDialogOpen] = useState(false);
+  const [tradeDialogSymbol, setTradeDialogSymbol] = useState("");
+  const [tradeDialogAction, setTradeDialogAction] = useState<"BUY" | "SELL">("BUY");
+  const [tradeDialogDefaultQty, setTradeDialogDefaultQty] = useState(1);
+  const [tradeDialogPending, setTradeDialogPending] = useState(false);
+
   // Data states
   const [status, setStatus] = useState<BotStatus>({
     running: false,
-    trade_mode: "LOCAL_PAPER",
-    strategy: "sma",
+    trade_mode: "",
+    strategy: "",
     symbols: [],
     quantity: 1,
+    quantity_hk: 100,
     interval: 60,
-    candle_period: "m5",
+    candle_period: "",
     has_client: false
   });
 
@@ -307,7 +322,7 @@ export default function HongkongHome() {
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10); // Default to 10 rows for optimal visual balance
   const [maxPrice, setMaxPrice] = useState<string>("20"); // Default to 20 as requested
-  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("ge"); // Default to ge (>=)
+  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); // Default to le (<=)
   
   // Watchlist Drawer States
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -327,7 +342,7 @@ export default function HongkongHome() {
     // Basic HK stock ticker validation
     const numPart = cleaned.replace('.HK', '');
     if (!/^\d+$/.test(numPart)) {
-      alert("รหัสหุ้นฮ่องกงต้องเป็นตัวเลขเท่านั้น (เช่น 0700 หรือ 0700.HK)");
+      showToast("รหัสหุ้นฮ่องกงต้องเป็นตัวเลขเท่านั้น (เช่น 0700 หรือ 0700.HK)", "error");
       return;
     }
     
@@ -342,12 +357,53 @@ export default function HongkongHome() {
       setDrawerHkSymbols([...drawerHkSymbols, cleaned]);
       setNewSymbolInput("");
     } else {
-      alert("มีหุ้นตัวนี้อยู่ในรายการแล้ว");
+      showToast("มีหุ้นตัวนี้อยู่ในรายการแล้ว", "warning");
     }
   };
 
   const handleRemoveSymbol = (symbol: string) => {
     setDrawerHkSymbols(drawerHkSymbols.filter(s => s !== symbol));
+  };
+
+  const handleClearAllSymbols = async () => {
+    setClearPending(true);
+    const usList = status.symbols.filter(s => !s.endsWith('.HK'));
+    
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trade_mode: status.trade_mode,
+          symbols: usList, // Clear HK list on backend by saving only US symbols
+          quantity: status.quantity,
+          quantity_hk: status.quantity_hk,
+          interval: status.interval,
+          candle_period: status.candle_period,
+          strategy: status.strategy,
+          username: "",
+          password: "",
+          trade_pin: "",
+          app_key: "",
+          app_secret: ""
+        })
+      });
+      
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`ล้มเหลวในการล้างข้อมูล: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
+      } else {
+        showToast("ล้างรายการหุ้นสแกนทั้งหมดและรีโหลดบอทสำเร็จ!", "success");
+        setDrawerHkSymbols([]);
+        setIsConfigInitialized(false);
+        await loadData(true);
+        setConfirmClearOpen(false);
+      }
+    } catch (err) {
+      showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย", "error");
+    } finally {
+      setClearPending(false);
+    }
   };
 
   const handleSaveDrawerConfig = async () => {
@@ -363,6 +419,7 @@ export default function HongkongHome() {
           trade_mode: status.trade_mode,
           symbols: combinedSymbols,
           quantity: status.quantity,
+          quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
           strategy: status.strategy,
@@ -376,15 +433,15 @@ export default function HongkongHome() {
       
       const data = await res.json();
       if (!res.ok) {
-        alert(`เกิดข้อผิดพลาด: ${data.detail || "ไม่สามารถอัปเดตข้อมูลได้"}`);
+        showToast(`เกิดข้อผิดพลาด: ${data.detail || "ไม่สามารถอัปเดตข้อมูลได้"}`, "error");
       } else {
-        alert("บันทึกการตั้งค่ารายชื่อหุ้นฮ่องกงและรีโหลดบอทสำเร็จ!");
+        showToast("บันทึกการตั้งค่ารายชื่อหุ้นฮ่องกงและรีโหลดบอทสำเร็จ!", "success");
         setIsConfigInitialized(false);
         setDrawerOpen(false);
-        await loadData();
+        await loadData(true);
       }
     } catch (err) {
-      alert("ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง");
+      showToast("ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง", "error");
     } finally {
       setActionLoading(false);
     }
@@ -411,7 +468,10 @@ export default function HongkongHome() {
   const [formAppKey, setFormAppKey] = useState("");
   const [formAppSecret, setFormAppSecret] = useState("");
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (forceLoading = false) => {
+    if (forceLoading) {
+      setIsSignalsLoading(true);
+    }
     try {
       const resStatus = await fetch(`${API_BASE}/status`);
       if (!resStatus.ok) throw new Error("Backend response error");
@@ -449,13 +509,13 @@ export default function HongkongHome() {
 
   useEffect(() => {
     setMounted(true);
-    loadData();
-    const intervalId = setInterval(loadData, 3000); // Fixed 3 seconds refresh
+    loadData(true);
+    const intervalId = setInterval(() => loadData(false), 3000); // Fixed 3 seconds refresh (silent)
     return () => clearInterval(intervalId);
   }, [loadData]);
 
   useEffect(() => {
-    if (!isConfigInitialized && status.symbols.length > 0) {
+    if (!isConfigInitialized && status.trade_mode !== "") {
       setFormMode(status.trade_mode);
       const us = status.symbols.filter(s => !s.endsWith('.HK')).join(", ");
       const hk = status.symbols.filter(s => s.endsWith('.HK')).join(", ");
@@ -510,6 +570,7 @@ export default function HongkongHome() {
                   trade_mode: status.trade_mode,
                   symbols: updatedSymbols,
                   quantity: status.quantity,
+                  quantity_hk: status.quantity_hk,
                   interval: status.interval,
                   candle_period: status.candle_period,
                   strategy: status.strategy,
@@ -560,51 +621,52 @@ export default function HongkongHome() {
       const res = await fetch(`${API_BASE}/${endpoint}`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
-        alert(`Error: ${data.detail || "Request failed"}`);
+        showToast(`Error: ${data.detail || "Request failed"}`, "error");
       } else {
+        showToast(`บอท${status.running ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
         await loadData();
       }
     } catch (err) {
-      alert("Failed to toggle bot loop. Check backend console.");
+      showToast("Failed to toggle bot loop. Check backend console.", "error");
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleQuickTrade = async (symbol: string, action: "BUY" | "SELL", defaultQty?: number) => {
-    const startQty = defaultQty !== undefined ? defaultQty : status.quantity;
-    const qty = prompt(`ส่งออเดอร์ด่วน ${action} หุ้น ${symbol}\nกรุณาระบุจำนวนหุ้นที่ต้องการเทรด:`, startQty.toString());
-    if (qty === null) return; // User cancelled
-    const qtyNum = parseInt(qty);
-    if (isNaN(qtyNum) || qtyNum <= 0) {
-      alert("จำนวนหุ้นไม่ถูกต้อง");
-      return;
-    }
-    
-    setActionLoading(true);
+    const startQty = defaultQty !== undefined ? defaultQty : status.quantity_hk;
+    setTradeDialogSymbol(symbol);
+    setTradeDialogAction(action);
+    setTradeDialogDefaultQty(startQty);
+    setTradeDialogOpen(true);
+  };
+
+  const handleExecuteQuickTrade = async (qtyNum: number) => {
+    setTradeDialogPending(true);
     try {
       const res = await fetch(`${API_BASE}/order`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          symbol: symbol,
+          symbol: tradeDialogSymbol,
           qty: qtyNum,
-          action: action,
+          action: tradeDialogAction,
           order_type: "MKT"
         })
       });
       
       const data = await res.json();
       if (!res.ok) {
-        alert(`ส่งออเดอร์ล้มเหลว: ${data.detail || "กรุณาตรวจสอบระบบ"}`);
+        showToast(`ส่งออเดอร์ล้มเหลว: ${data.detail || "กรุณาตรวจสอบระบบ"}`, "error");
       } else {
-        alert(`ส่งคำสั่งซื้อขายสำเร็จ: ${action} ${qtyNum} หุ้นของ ${symbol}`);
+        showToast(`ส่งคำสั่งซื้อขายสำเร็จ: ${tradeDialogAction} ${qtyNum} หุ้นของ ${tradeDialogSymbol}`, "success");
         await loadData();
       }
     } catch (err) {
-      alert("เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย");
+      showToast("เกิดข้อผิดพลาดในการเชื่อมต่อเครือข่าย", "error");
     } finally {
-      setActionLoading(false);
+      setTradeDialogPending(false);
+      setTradeDialogOpen(false);
     }
   };
 
@@ -651,9 +713,9 @@ export default function HongkongHome() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(`Config Save Error: ${data.detail || "Validation failed"}`);
+        showToast(`Config Save Error: ${data.detail || "Validation failed"}`, "error");
       } else {
-        alert("Configuration saved and hot-reloaded successfully!");
+        showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว!", "success");
         setIsConfigInitialized(false); // Unlock to fetch updated server values
         setFormUsername("");
         setFormPassword("");
@@ -663,7 +725,7 @@ export default function HongkongHome() {
         await loadData();
       }
     } catch (err) {
-      alert("Failed to update config. Backend might be reinitializing.");
+      showToast("Failed to update config. Backend might be reinitializing.", "error");
     } finally {
       setActionLoading(false);
     }
@@ -671,7 +733,7 @@ export default function HongkongHome() {
 
   const handleAddRecommendedSymbol = async (symbol: string) => {
     if (status.symbols.includes(symbol)) {
-      alert(`มีรหัส ${symbol} อยู่ในสแกนเนอร์บอทแล้วครับ`);
+      showToast(`มีรหัส ${symbol} อยู่ในสแกนเนอร์บอทแล้วครับ`, "warning");
       return;
     }
     setActionLoading(true);
@@ -684,6 +746,7 @@ export default function HongkongHome() {
           trade_mode: status.trade_mode,
           symbols: updatedSymbols,
           quantity: status.quantity,
+          quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
           strategy: status.strategy,
@@ -695,15 +758,15 @@ export default function HongkongHome() {
         })
       });
       if (res.ok) {
-        alert(`เพิ่ม ${symbol} เข้า Watchlist และเชื่อมโยงรีสตาร์ทบอทสำเร็จแล้วครับ!`);
+        showToast(`เพิ่ม ${symbol} เข้า Watchlist และรีสตาร์ทบอทสำเร็จ!`, "success");
         setIsConfigInitialized(false);
-        await loadData();
+        await loadData(true);
       } else {
         const data = await res.json();
-        alert(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`);
+        showToast(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
       }
     } catch (err) {
-      alert("เชื่อมต่อหลังบ้านล้มเหลว");
+      showToast("เชื่อมต่อหลังบ้านล้มเหลว", "error");
     } finally {
       setActionLoading(false);
     }
@@ -740,7 +803,7 @@ export default function HongkongHome() {
     }
     
     if (addedCount === 0) {
-      alert("มีหุ้นแนะนำทั้งหมดอยู่ในระบบสแกนเนอร์บอทเรียบร้อยแล้วครับ!");
+      showToast("มีหุ้นแนะนำทั้งหมดอยู่ในระบบสแกนเนอร์บอทเรียบร้อยแล้วครับ!", "info");
       setActionLoading(false);
       return;
     }
@@ -753,6 +816,7 @@ export default function HongkongHome() {
           trade_mode: status.trade_mode,
           symbols: updatedSymbols,
           quantity: status.quantity,
+          quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
           strategy: status.strategy,
@@ -764,15 +828,17 @@ export default function HongkongHome() {
         })
       });
       if (res.ok) {
-        alert(`เพิ่มหุ้นแนะนำทั้ง 20 ตัวเข้าสแกนเนอร์บอทและรีสตาร์ทสำเร็จแล้วครับ!`);
+        showToast("เพิ่มหุ้นแนะนำทั้งหมดเข้าสแกนเนอร์บอทและรีสตาร์ทสำเร็จ!", "success");
         setIsConfigInitialized(false);
-        await loadData();
+        const newHkSymbols = updatedSymbols.filter(s => s.endsWith('.HK'));
+        setDrawerHkSymbols(newHkSymbols);
+        await loadData(true);
       } else {
         const data = await res.json();
-        alert(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`);
+        showToast(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
       }
     } catch (err) {
-      alert("เชื่อมต่อหลังบ้านล้มเหลว");
+      showToast("เชื่อมต่อหลังบ้านล้มเหลว", "error");
     } finally {
       setActionLoading(false);
     }
@@ -999,6 +1065,7 @@ export default function HongkongHome() {
                       borderRadius: '8px', 
                       fontSize: '0.78rem',
                       px: 2,
+                      mr: 1.5,
                       borderColor: 'rgba(59, 130, 246, 0.4)',
                       color: '#3b82f6',
                       '&:hover': {
@@ -1413,9 +1480,23 @@ export default function HongkongHome() {
               color="primary"
               onClick={handleMonitorAllRecommended}
               disabled={actionLoading}
-              sx={{ fontSize: '0.72rem', py: 0, fontWeight: 700 }}
+              sx={{ 
+                fontSize: '0.72rem', 
+                py: 0, 
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5
+              }}
             >
-              เพิ่มทั้งหมด 80 ตัว
+              {actionLoading ? (
+                <>
+                  <CircularProgress size={12} sx={{ color: 'primary.main' }} />
+                  กำลังดำเนินการ...
+                </>
+              ) : (
+                "เพิ่มทั้งหมด 80 ตัว"
+              )}
             </Button>
           </Box>
           <Typography variant="caption" color="text.secondary">คลิกเลือกทีละตัวด้านล่าง หรือกด "เพิ่มทั้งหมด 80 ตัว" เพื่อสแกนตลาดฮ่องกงแบบครอบคลุม</Typography>
@@ -1476,9 +1557,7 @@ export default function HongkongHome() {
                 size="small" 
                 color="error" 
                 variant="text" 
-                onClick={() => {
-                  if (confirm("ต้องการลบหุ้นทั้งหมดในรายการหรือไม่?")) setDrawerHkSymbols([]);
-                }}
+                onClick={() => setConfirmClearOpen(true)}
                 sx={{ fontSize: '0.68rem', py: 0 }}
               >
                 ล้างทั้งหมด
@@ -1557,6 +1636,30 @@ export default function HongkongHome() {
         </Box>
       </Box>
     </Drawer>
+
+    {/* Confirm Clear Watchlist Dialog */}
+    <ConfirmDialog
+      open={confirmClearOpen}
+      title="ยืนยันการล้างรายการสแกน?"
+      message="คุณต้องการลบรายชื่อหุ้นทั้งหมดในรายการสแกนนี้ใช่หรือไม่?"
+      confirmText="ใช่, ล้างทั้งหมด"
+      cancelText="ยกเลิก"
+      severity="warning"
+      loading={clearPending}
+      onConfirm={handleClearAllSymbols}
+      onCancel={() => setConfirmClearOpen(false)}
+    />
+
+    {/* Quick Trade Dialog */}
+    <TradeDialog
+      open={tradeDialogOpen}
+      symbol={tradeDialogSymbol}
+      action={tradeDialogAction}
+      defaultQty={tradeDialogDefaultQty}
+      loading={tradeDialogPending}
+      onConfirm={handleExecuteQuickTrade}
+      onCancel={() => setTradeDialogOpen(false)}
+    />
         
     </>
   );

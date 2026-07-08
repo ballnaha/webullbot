@@ -144,6 +144,7 @@ class ConfigModel(BaseModel):
     trade_mode: str
     symbols: List[str]
     quantity: int
+    quantity_hk: Optional[int] = 100
     interval: int
     candle_period: str
     strategy: str
@@ -156,7 +157,7 @@ class ConfigModel(BaseModel):
 
 class OrderModel(BaseModel):
     symbol: str
-    qty: int
+    qty: float
     action: str  # BUY or SELL
     order_type: str = "MKT"  # MKT or LMT
     price: Optional[float] = None
@@ -169,6 +170,7 @@ def get_status():
         "strategy": bot_state["strategy_name"],
         "symbols": Config.DEFAULT_SYMBOLS,
         "quantity": Config.TRADE_QUANTITY,
+        "quantity_hk": Config.TRADE_QUANTITY_HK,
         "interval": Config.INTERVAL,
         "candle_period": Config.CANDLE_PERIOD,
         "has_client": bot_state["client"] is not None
@@ -349,15 +351,14 @@ def update_config(data: ConfigModel):
                 symbols_str = ",".join(data.symbols).upper()
                 f.write(f"DEFAULT_SYMBOLS={symbols_str}\n")
                 f.write(f"TRADE_QUANTITY={data.quantity}\n")
+                qty_hk = data.quantity_hk if data.quantity_hk is not None else 100
+                f.write(f"TRADE_QUANTITY_HK={qty_hk}\n")
                 f.write(f"INTERVAL={data.interval}\n")
                 f.write(f"CANDLE_PERIOD={data.candle_period.lower()}\n")
                 f.write(f"SIMULATED_INITIAL_CASH={Config.SIMULATED_INITIAL_CASH}\n")
             
-            # Force reload Config
-            import config
-            importlib.reload(config)
-            Config = config.Config
-            globals()['Config'] = Config
+            # Force reload Config in-place
+            Config.reload_values()
             
             # Update strategy name state
             bot_state["strategy_name"] = data.strategy.lower()

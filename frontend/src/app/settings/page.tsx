@@ -17,16 +17,21 @@ import {
   FormControl, 
   InputLabel, 
   Alert, 
-  AlertTitle
+  AlertTitle,
+  InputAdornment,
+  IconButton
 } from '@mui/material';
 
 import Header from 'frontend/components/Header';
+import { useToast } from 'frontend/components/ToastProvider';
 
 import { 
   Settings, 
   UserCheck, 
   RefreshCw, 
-  AlertCircle
+  AlertCircle,
+  Minus,
+  Plus
 } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8484/api";
@@ -37,6 +42,7 @@ interface BotStatus {
   strategy: string;
   symbols: string[];
   quantity: number;
+  quantity_hk: number;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -121,6 +127,7 @@ const darkTheme = createTheme({
 });
 
 export default function SettingsPage() {
+  const { showToast } = useToast();
   const [mounted, setMounted] = useState(false);
   const [connected, setConnected] = useState(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -129,12 +136,13 @@ export default function SettingsPage() {
   // Status state
   const [status, setStatus] = useState<BotStatus>({
     running: false,
-    trade_mode: "LOCAL_PAPER",
-    strategy: "sma",
+    trade_mode: "",
+    strategy: "",
     symbols: [],
     quantity: 1,
+    quantity_hk: 100,
     interval: 60,
-    candle_period: "m5",
+    candle_period: "",
     has_client: false
   });
 
@@ -143,6 +151,7 @@ export default function SettingsPage() {
   const [formUsSymbols, setFormUsSymbols] = useState("");
   const [formHkSymbols, setFormHkSymbols] = useState("");
   const [formQty, setFormQty] = useState(1);
+  const [formQtyHk, setFormQtyHk] = useState(100);
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
   const [formStrategy, setFormStrategy] = useState("sma");
@@ -177,13 +186,14 @@ export default function SettingsPage() {
   }, [loadData]);
 
   useEffect(() => {
-    if (!isConfigInitialized && status.symbols.length > 0) {
+    if (!isConfigInitialized && status.trade_mode !== "") {
       setFormMode(status.trade_mode);
       const us = status.symbols.filter(s => !s.endsWith('.HK')).join(", ");
       const hk = status.symbols.filter(s => s.endsWith('.HK')).join(", ");
       setFormUsSymbols(us);
       setFormHkSymbols(hk);
       setFormQty(status.quantity);
+      setFormQtyHk(status.quantity_hk);
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
       setFormStrategy(status.strategy);
@@ -221,6 +231,7 @@ export default function SettingsPage() {
           trade_mode: formMode,
           symbols: combinedSymbols,
           quantity: formQty,
+          quantity_hk: formQtyHk,
           interval: formInterval,
           candle_period: formPeriod,
           strategy: formStrategy,
@@ -234,19 +245,38 @@ export default function SettingsPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(`Config Save Error: ${data.detail || "Validation failed"}`);
+        showToast(`Config Save Error: ${data.detail || "Validation failed"}`, "error");
       } else {
-        alert("Configuration saved and hot-reloaded successfully!");
-        setIsConfigInitialized(false); // Unlock to sync
+        showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว!", "success");
         setFormUsername("");
         setFormPassword("");
         setFormTradePin("");
         setFormAppKey("");
         setFormAppSecret("");
-        await loadData();
+
+        // Fetch fresh status and directly update form values
+        try {
+          const freshRes = await fetch(`${API_BASE}/status`);
+          if (freshRes.ok) {
+            const freshStatus = await freshRes.json();
+            setStatus(freshStatus);
+            // Directly sync form from fresh server values
+            setFormMode(freshStatus.trade_mode);
+            const us = (freshStatus.symbols || []).filter((s: string) => !s.endsWith('.HK')).join(", ");
+            const hk = (freshStatus.symbols || []).filter((s: string) => s.endsWith('.HK')).join(", ");
+            setFormUsSymbols(us);
+            setFormHkSymbols(hk);
+            setFormQty(freshStatus.quantity);
+            setFormQtyHk(freshStatus.quantity_hk);
+            setFormInterval(freshStatus.interval);
+            setFormPeriod(freshStatus.candle_period);
+            setFormStrategy(freshStatus.strategy);
+          }
+        } catch (_) { /* silent */ }
+        setIsConfigInitialized(true);
       }
     } catch (err) {
-      alert("Failed to update config. Backend might be reinitializing.");
+      showToast("Failed to update config. Backend might be reinitializing.", "error");
     } finally {
       setActionLoading(false);
     }
@@ -395,15 +425,83 @@ export default function SettingsPage() {
                 </Box>
 
                 {/* 5. Parameters grid */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2.5 }}>
                   <TextField 
                     fullWidth
                     size="small"
-                    label="จำนวนสั่งซื้อมาตรฐาน (Qty)"
+                    label="งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)"
                     type="number"
                     value={formQty}
-                    onChange={(e) => setFormQty(parseInt(e.target.value) || 1)}
-                    slotProps={{ htmlInput: { min: 1 } }}
+                    onChange={(e) => setFormQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    slotProps={{ 
+                      htmlInput: { min: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setFormQty(prev => Math.max(1, prev - 1))}
+                              disabled={actionLoading || formQty <= 1}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Minus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setFormQty(prev => prev + 1)}
+                              disabled={actionLoading}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Plus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                    required
+                    disabled={actionLoading}
+                  />
+
+                  <TextField 
+                    fullWidth
+                    size="small"
+                    label="จำนวนหุ้นซื้อเริ่มต้น ฮ่องกง (HK Shares Qty)"
+                    type="number"
+                    value={formQtyHk}
+                    onChange={(e) => setFormQtyHk(Math.max(1, parseInt(e.target.value) || 1))}
+                    slotProps={{ 
+                      htmlInput: { min: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setFormQtyHk(prev => Math.max(1, prev - 1))}
+                              disabled={actionLoading || formQtyHk <= 1}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Minus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton 
+                              size="small" 
+                              onClick={() => setFormQtyHk(prev => prev + 1)}
+                              disabled={actionLoading}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Plus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }
+                    }}
                     required
                     disabled={actionLoading}
                   />

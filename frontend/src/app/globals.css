@@ -43,3 +43,13 @@ html, body {
 .spin {
   animation: spin 3s linear infinite;
 }
+
+/* Hide HTML5 number input spin buttons globally */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type=number] {
+  -moz-appearance: textfield;
+}

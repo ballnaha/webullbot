@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { ThemeProvider, createTheme, CssBaseline, Container, Alert, AlertTitle, Box } from '@mui/material';
 import { AlertCircle } from 'lucide-react';
 import Header from './Header';
+import ToastProvider from './ToastProvider';
 
 const API_BASE = "http://127.0.0.1:8484/api";
 
@@ -134,25 +135,27 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   return (
     <ThemeProvider theme={darkTheme}>
       <CssBaseline />
-      <Container maxWidth="xl" sx={{ py: 4 }}>
-        {/* Persistent Shared Header: Stays mounted during client routing transitions */}
-        <Header connected={connected} tradeMode={tradeMode} />
-        
-        {apiError && (
-          <Alert 
-            severity="error" 
-            icon={<AlertCircle size={20} />}
-            sx={{ mb: 4, borderRadius: '16px', border: '1px solid rgba(244, 63, 94, 0.2)', bgcolor: 'rgba(244, 63, 94, 0.05)' }}
-          >
-            <AlertTitle sx={{ fontWeight: 700 }}>ล้มเหลวในการเชื่อมต่อระบบหลังบ้าน</AlertTitle>
-            ระบบขาดการติดต่อกับ Python API server (พอร์ต 8484) — กรุณารันไฟล์ <strong><code>start.bat</code></strong> เพื่อให้ระบบเริ่มทำงาน
-          </Alert>
-        )}
-        
-        <Box sx={{ minHeight: '80vh' }}>
-          {children}
-        </Box>
-      </Container>
+      <ToastProvider>
+        <Container maxWidth="xl" sx={{ py: 4 }}>
+          {/* Persistent Shared Header: Stays mounted during client routing transitions */}
+          <Header connected={connected} tradeMode={tradeMode} />
+          
+          {apiError && (
+            <Alert 
+              severity="error" 
+              icon={<AlertCircle size={20} />}
+              sx={{ mb: 4, borderRadius: '16px', border: '1px solid rgba(244, 63, 94, 0.2)', bgcolor: 'rgba(244, 63, 94, 0.05)' }}
+            >
+              <AlertTitle sx={{ fontWeight: 700 }}>ล้มเหลวในการเชื่อมต่อระบบหลังบ้าน</AlertTitle>
+              ระบบขาดการติดต่อกับ Python API server (พอร์ต 8484) — กรุณารันไฟล์ <strong><code>start.bat</code></strong> เพื่อให้ระบบเริ่มทำงาน
+            </Alert>
+          )}
+          
+          <Box sx={{ minHeight: '80vh' }}>
+            {children}
+          </Box>
+        </Container>
+      </ToastProvider>
     </ThemeProvider>
   );
 }

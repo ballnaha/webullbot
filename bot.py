@@ -15,7 +15,8 @@ class TradingBot:
         self.client = client
         self.strategy = strategy
         self.symbols = symbols or Config.DEFAULT_SYMBOLS
-        self.trade_qty = Config.TRADE_QUANTITY
+        self.trade_qty_us = Config.TRADE_QUANTITY
+        self.trade_qty_hk = Config.TRADE_QUANTITY_HK
         self.candle_period = Config.CANDLE_PERIOD
         
         # Log lists
@@ -77,27 +78,40 @@ class TradingBot:
                     if owned_qty > 0:
                         self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
                     else:
-                        self.add_log(f"Signal: BUY {self.trade_qty} shares of {symbol}...")
-                        order_res = self.client.place_order(
-                            symbol=symbol,
-                            qty=self.trade_qty,
-                            action="BUY",
-                            order_type="MKT"
-                        )
-                        
-                        if order_res.get("status") in ["FILLED", "SUBMITTED"]:
-                            exec_price = order_res.get("price", current_price)
-                            self.add_log(f"SUCCESS: Bought {self.trade_qty} shares of {symbol} at ${exec_price:.2f}")
-                            self.trades_history.append({
-                                "time": datetime.now().strftime("%H:%M:%S"),
-                                "symbol": symbol,
-                                "action": "BUY",
-                                "qty": self.trade_qty,
-                                "price": exec_price,
-                                "status": order_res.get("status")
-                            })
+                        if symbol.endswith(".HK"):
+                            qty_to_trade = self.trade_qty_hk
                         else:
-                            self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
+                            # Cash-based budget conversion to fractional shares for US stocks
+                            if current_price > 0:
+                                qty_to_trade = float(self.trade_qty_us) / current_price
+                                qty_to_trade = round(qty_to_trade, 4)
+                            else:
+                                qty_to_trade = 0
+                                
+                        if qty_to_trade <= 0:
+                            self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")
+                        else:
+                            self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Budget: ${self.trade_qty_us} for US / Qty: {self.trade_qty_hk} for HK)...")
+                            order_res = self.client.place_order(
+                                symbol=symbol,
+                                qty=qty_to_trade,
+                                action="BUY",
+                                order_type="MKT"
+                            )
+                            
+                            if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                exec_price = order_res.get("price", current_price)
+                                self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f}")
+                                self.trades_history.append({
+                                    "time": datetime.now().strftime("%H:%M:%S"),
+                                    "symbol": symbol,
+                                    "action": "BUY",
+                                    "qty": qty_to_trade,
+                                    "price": exec_price,
+                                    "status": order_res.get("status")
+                                })
+                            else:
+                                self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
                             
                 elif signal == "SELL":
                     if owned_qty <= 0:

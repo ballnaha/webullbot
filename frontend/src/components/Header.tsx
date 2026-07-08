@@ -13,6 +13,7 @@ interface HeaderProps {
 
 export default function Header({ connected, tradeMode }: HeaderProps) {
   const pathname = usePathname();
+  const isStockUs = pathname === '/stockus' || pathname === '/';
   const isHongKong = pathname === '/hongkong';
   const isSettings = pathname === '/settings';
   const isLogs = pathname === '/logs';
@@ -64,7 +65,7 @@ export default function Header({ connected, tradeMode }: HeaderProps) {
       
       {/* Navigation Buttons (Metabot Pill design) */}
       <Box sx={{ display: 'flex', gap: 1, bgcolor: 'rgba(0,0,0,0.15)', p: 0.5, borderRadius: '10px' }}>
-        <Link href="/" passHref style={{ textDecoration: 'none' }}>
+        <Link href="/stockus" passHref style={{ textDecoration: 'none' }}>
           <Button
             size="small"
             sx={{ 
@@ -75,7 +76,7 @@ export default function Header({ connected, tradeMode }: HeaderProps) {
               borderRadius: '8px',
               transition: 'all 0.25s',
               textTransform: 'none',
-              ...(pathname === '/' ? {
+              ...(isStockUs ? {
                 bgcolor: 'rgba(59, 130, 246, 0.15)',
                 color: '#60a5fa',
                 border: '1px solid rgba(59, 130, 246, 0.3)',

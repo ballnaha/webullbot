@@ -97,6 +97,7 @@ def run_setup_wizard():
         f.write(f"WEBULL_APP_SECRET={app_secret}\n\n")
         f.write(f"DEFAULT_SYMBOLS={symbols}\n")
         f.write(f"TRADE_QUANTITY={qty}\n")
+        f.write("TRADE_QUANTITY_HK=100\n")
         f.write(f"INTERVAL={interval}\n")
         f.write(f"CANDLE_PERIOD={period}\n")
         f.write("SIMULATED_INITIAL_CASH=10000.0\n")
