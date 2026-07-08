@@ -1,0 +1,8 @@
+pandas>=2.0.0
+rich>=13.0.0
+python-dotenv>=1.0.0
+webull>=0.2.0
+webull-openapi-python-sdk>=0.1.0
+yfinance>=0.2.0
+fastapi>=0.100.0
+uvicorn>=0.20.0

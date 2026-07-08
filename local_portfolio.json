@@ -1,0 +1,41 @@
+{
+    "balance": {
+        "cash": 10003.399993896484,
+        "currency": "USD"
+    },
+    "positions": {},
+    "transactions": [
+        {
+            "timestamp": "2026-07-08 11:38:17",
+            "symbol": "0700.HK",
+            "action": "BUY",
+            "qty": 1,
+            "price": 475.3999938964844,
+            "total": 475.3999938964844
+        },
+        {
+            "timestamp": "2026-07-08 16:10:40",
+            "symbol": "0700.HK",
+            "action": "SELL",
+            "qty": 1,
+            "price": 478.79998779296875,
+            "total": 478.79998779296875
+        },
+        {
+            "timestamp": "2026-07-08 16:10:57",
+            "symbol": "0939.HK",
+            "action": "BUY",
+            "qty": 1,
+            "price": 8.279999732971191,
+            "total": 8.279999732971191
+        },
+        {
+            "timestamp": "2026-07-08 16:11:14",
+            "symbol": "0939.HK",
+            "action": "SELL",
+            "qty": 1,
+            "price": 8.279999732971191,
+            "total": 8.279999732971191
+        }
+    ]
+}

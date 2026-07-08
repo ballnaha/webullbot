@@ -1,0 +1,45 @@
+/* Basic body backgrounds and scrollbar customizations to run alongside MUI */
+
+:root {
+  --bg-main: #0a0e1a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html, body {
+  background-color: var(--bg-main);
+  background-image: 
+    radial-gradient(circle at 10% 20%, rgba(79, 172, 254, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 90% 80%, rgba(0, 242, 254, 0.03) 0%, transparent 40%);
+  background-attachment: fixed;
+  margin: 0;
+  padding: 0;
+  height: 100%;
+}
+
+/* Scrollbar Customization */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #0d1326;
+}
+::-webkit-scrollbar-thumb {
+  background: #2a365c;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #3e508a;
+}
+
+/* MUI Loading Spin Animation */
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.spin {
+  animation: spin 3s linear infinite;
+}
