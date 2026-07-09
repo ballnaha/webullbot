@@ -340,6 +340,7 @@ export default function HongkongHome() {
   const [scanInterval, setScanInterval] = useState<number>(3); // Default 3s refresh
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [page, setPage] = useState(0);
+  const [workspaceTab, setWorkspaceTab] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10); // Default to 10 rows for optimal visual balance
   const [maxPrice, setMaxPrice] = useState<string>(""); 
   const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); 
@@ -1155,26 +1156,26 @@ export default function HongkongHome() {
         {/* 3. Main Body Container (Vertical Stack) */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
           
-          {/* Real-time Signals Scanner */}
-          <Card>
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: 'wrap', gap: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.06)', display: 'flex' }}>
-                    <Eye size={18} color="#3b82f6" />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      สแกนเนอร์สัญญาณเทรดเรียลไทม์ (Real-time Trading Signals)
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค
-                    </Typography>
-                  </Box>
+          {/* 3. Main Trading Workspace (Professional Tabbed Panel) */}
+          <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', overflow: 'hidden' }}>
+            {/* Workspace Header */}
+            <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : 'rgba(16, 185, 129, 0.06)', display: 'flex' }}>
+                  {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : <Activity size={20} color="#10b981" />}
                 </Box>
-
-                {/* Scan Controls like metabot */}
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
+                    {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : "พอร์ตโฟลิโอสินทรัพย์ฮ่องกง (Positions)"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้"}
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {workspaceTab === 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <FormControl size="small" sx={{ width: 65 }}>
                     <Select
                       value={priceOperator}
@@ -1308,7 +1309,27 @@ export default function HongkongHome() {
                     )}
                   </Button>
                 </Box>
-              </Box>
+              )}
+            </Box>
+
+            {/* Tab Swapper */}
+            <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', px: 3, bgcolor: 'rgba(255,255,255,0.01)' }}>
+              <Tabs 
+                value={workspaceTab} 
+                onChange={(e, newIdx) => setWorkspaceTab(newIdx)} 
+                textColor="primary" 
+                indicatorColor="primary"
+              >
+                <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+                <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+                <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              </Tabs>
+            </Box>
+
+            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+              {/* Tab 1: Long Scanner */}
+              {workspaceTab === 0 && (
+                <>
               
               <Box sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
@@ -1500,28 +1521,11 @@ export default function HongkongHome() {
                     }
                   }}
                 />
-              </CardContent>
-            </Card>
+                </>
+              )}
 
-            {/* Inverse ETF Shorting Mappings & Positions */}
-            <Card>
-              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(244, 63, 94, 0.06)', display: 'flex' }}>
-                      <TrendingDown size={18} color="#f43f5e" />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        สแกนเนอร์และพอร์ต Inverse ETF (Short ETFs)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        รายการจับคู่หุ้นปกติ (Underlying) และกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                
+              {/* Tab 2: Inverse ETFs */}
+              {workspaceTab === 1 && (
                 <TableContainer>
                   <Table size="small">
                     <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
@@ -1622,28 +1626,10 @@ export default function HongkongHome() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </CardContent>
-            </Card>
+              )}
 
-            {/* Positions Table */}
-            <Card>
-              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.06)', display: 'flex' }}>
-                      <Activity size={18} color="#3b82f6" />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        หุ้นในพอร์ต (Active Positions)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                
+              {/* Tab 3: Active Positions */}
+              {workspaceTab === 2 && (
                 <TableContainer>
                   <Table>
                     <TableHead>
@@ -1679,8 +1665,8 @@ export default function HongkongHome() {
                                 </Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.avg_price.toFixed(2)}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.market_value.toFixed(2)}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
                               <TableCell align="right">
                                 <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
                                   <Typography 
@@ -1690,7 +1676,7 @@ export default function HongkongHome() {
                                       fontFamily: 'var(--font-mono)'
                                     }}
                                   >
-                                    {posProfit ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
+                                    {posProfit ? "+" : ""}HK$ {pos.unrealized_pnl.toFixed(2)}
                                   </Typography>
                                   <Chip 
                                     label={pos.avg_price > 0 ? `${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0%"}
@@ -1727,8 +1713,9 @@ export default function HongkongHome() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </CardContent>
-            </Card>
+              )}
+            </CardContent>
+          </Card>
         </Box>
 
       <Drawer
