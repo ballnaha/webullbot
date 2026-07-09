@@ -496,6 +496,15 @@ def update_config(data: ConfigModel):
             if not success:
                 raise HTTPException(status_code=400, detail=f"Configuration saved, but reinitialization failed: {msg}")
                 
+            # If TRADE_MODE is LOCAL_PAPER, reset the portfolio cash to the newly saved values
+            if Config.TRADE_MODE == "LOCAL_PAPER" and bot_state["client"]:
+                client = bot_state["client"]
+                if hasattr(client, "portfolio") and "balance" in client.portfolio:
+                    client.portfolio["balance"]["cash"] = Config.SIMULATED_INITIAL_CASH
+                    client.portfolio["balance"]["cash_hkd"] = Config.SIMULATED_INITIAL_CASH_HKD
+                    client._save_portfolio()
+                    add_system_log(f"Simulated cash balances updated to USD: {Config.SIMULATED_INITIAL_CASH}, HKD: {Config.SIMULATED_INITIAL_CASH_HKD}")
+                
             # Restore running state if possible
             if was_running_us:
                 bot_state["running_us"] = True
