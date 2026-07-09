@@ -81,8 +81,8 @@ class TradingBot:
                         
                         if current_slots >= Config.HK_MAX_SLOTS:
                             self.add_log(f"Signal is BUY for {symbol} but already own {owned_qty} shares ({current_slots}/{Config.HK_MAX_SLOTS} slots). Skipping.")
-                        elif current_price > Config.HK_MAX_PRICE_PER_SLOT:
-                            self.add_log(f"Signal is BUY for {symbol} but current price ${current_price:.2f} is above max buy price per slot ${Config.HK_MAX_PRICE_PER_SLOT:.2f}. Skipping.")
+                        elif current_price > Config.HK_FILTER_PRICE_LIMIT:
+                            self.add_log(f"Signal is BUY for {symbol} but current price ${current_price:.2f} is above target filter price limit ${Config.HK_FILTER_PRICE_LIMIT:.2f}. Skipping.")
                         else:
                             qty_to_trade = slot_size
                             if qty_to_trade <= 0:

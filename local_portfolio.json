@@ -1,8 +1,67 @@
 {
     "balance": {
         "cash": 300.0,
-        "currency": "USD"
+        "currency": "USD",
+        "cash_hkd": 1481.9999837875366
     },
-    "positions": {},
-    "transactions": []
+    "positions": {
+        "0003.HK": {
+            "qty": 100,
+            "avg_price": 6.590000152587891
+        },
+        "0968.HK": {
+            "qty": 100,
+            "avg_price": 1.9700000286102295
+        }
+    },
+    "transactions": [
+        {
+            "timestamp": "2026-07-09 15:08:05",
+            "symbol": "0968.HK",
+            "action": "BUY",
+            "qty": 100,
+            "price": 1.9700000286102295,
+            "total": 197.00000286102295
+        },
+        {
+            "timestamp": "2026-07-09 15:11:31",
+            "symbol": "0968.HK",
+            "action": "SELL",
+            "qty": 100,
+            "price": 1.9600000381469727,
+            "total": 196.00000381469727
+        },
+        {
+            "timestamp": "2026-07-09 15:12:46",
+            "symbol": "0968.HK",
+            "action": "BUY",
+            "qty": 100,
+            "price": 1.9700000286102295,
+            "total": 197.00000286102295
+        },
+        {
+            "timestamp": "2026-07-09 15:13:53",
+            "symbol": "0003.HK",
+            "action": "BUY",
+            "qty": 100,
+            "price": 6.590000152587891,
+            "total": 659.0000152587891
+        },
+        {
+            "timestamp": "2026-07-09 15:13:54",
+            "symbol": "0968.HK",
+            "action": "SELL",
+            "qty": 100,
+            "price": 1.9600000381469727,
+            "total": 196.00000381469727
+        },
+        {
+            "timestamp": "2026-07-09 15:15:02",
+            "symbol": "0968.HK",
+            "action": "BUY",
+            "qty": 100,
+            "price": 1.9700000286102295,
+            "total": 197.00000286102295
+        }
+    ]
 }
