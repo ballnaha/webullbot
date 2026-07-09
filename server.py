@@ -218,6 +218,7 @@ class ConfigModel(BaseModel):
     trade_pin: Optional[str] = ""
     app_key: Optional[str] = ""
     app_secret: Optional[str] = ""
+    webull_api_endpoint: Optional[str] = ""
 
 class OrderModel(BaseModel):
     symbol: str
@@ -438,7 +439,9 @@ def update_config(data: ConfigModel):
                 f.write("WEBULL_DEVICE_NAME=PythonBot\n\n")
                 
                 f.write(f"WEBULL_APP_KEY={app_key}\n")
-                f.write(f"WEBULL_APP_SECRET={app_secret}\n\n")
+                f.write(f"WEBULL_APP_SECRET={app_secret}\n")
+                api_endpoint = data.webull_api_endpoint if data.webull_api_endpoint else Config.WEBULL_API_ENDPOINT
+                f.write(f"WEBULL_API_ENDPOINT={api_endpoint}\n\n")
                 
                 symbols_str = ",".join(data.symbols).upper()
                 f.write(f"DEFAULT_SYMBOLS={symbols_str}\n")
