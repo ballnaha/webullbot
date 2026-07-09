@@ -1,0 +1,10 @@
+# Environment variables
+.env
+
+# Local database/portfolio files
+local_portfolio.json
+did.bin
+
+# Python caching
+__pycache__/
+*.pyc

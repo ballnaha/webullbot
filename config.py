@@ -16,10 +16,30 @@ class Config:
     DEFAULT_SYMBOLS = []
     TRADE_QUANTITY = 1
     TRADE_QUANTITY_HK = 100
+    HK_MAX_SLOTS = 1
+    HK_MAX_PRICE_PER_SLOT = 999999.0
+    HK_MAX_QTY_PER_SLOT = 100
+    HK_FILTER_PRICE_LIMIT = 20.0
+    HK_FILTER_PRICE_OPERATOR = "le"
     INTERVAL = 60
     CANDLE_PERIOD = "m5"
     SIMULATED_INITIAL_CASH = 10000.0
     PORTFOLIO_FILE = "local_portfolio.json"
+    
+    # Inverse ETF hedging configurations
+    ENABLE_INVERSE_ETF_HEDGING = True
+    INVERSE_ETF_MAP = {
+        "AAPL": "AAPD",        # 1.5x Short Apple
+        "TSLA": "TSLQ",        # 1x Short Tesla
+        "NVDA": "NVDS",        # 1.25x Short Nvidia
+        "MSFT": "MSFD",        # 1.5x Short Microsoft
+        "QQQ": "SQQQ",         # 3x Short Nasdaq-100
+        "SPY": "SPXS",         # 3x Short S&P 500
+        "0700.HK": "7500.HK",  # Hedge Tencent via Short Hang Seng Index
+        "9988.HK": "7500.HK",  # Hedge Alibaba via Short Hang Seng Index
+        "1810.HK": "7552.HK",  # Hedge Xiaomi via Short Hang Seng Tech Index
+        "3690.HK": "7552.HK",  # Hedge Meituan via Short Hang Seng Tech Index
+    }
 
     @classmethod
     def reload_values(cls):
@@ -42,9 +62,15 @@ class Config:
         ]
         cls.TRADE_QUANTITY = int(os.getenv("TRADE_QUANTITY", "1"))
         cls.TRADE_QUANTITY_HK = int(os.getenv("TRADE_QUANTITY_HK", "100"))
+        cls.HK_MAX_SLOTS = int(os.getenv("HK_MAX_SLOTS", "1"))
+        cls.HK_MAX_PRICE_PER_SLOT = float(os.getenv("HK_MAX_PRICE_PER_SLOT", "999999.0"))
+        cls.HK_MAX_QTY_PER_SLOT = int(os.getenv("HK_MAX_QTY_PER_SLOT", "100"))
+        cls.HK_FILTER_PRICE_LIMIT = float(os.getenv("HK_FILTER_PRICE_LIMIT", "20.0"))
+        cls.HK_FILTER_PRICE_OPERATOR = os.getenv("HK_FILTER_PRICE_OPERATOR", "le").lower()
         cls.INTERVAL = int(os.getenv("INTERVAL", "60"))
         cls.CANDLE_PERIOD = os.getenv("CANDLE_PERIOD", "m5").lower()
         cls.SIMULATED_INITIAL_CASH = float(os.getenv("SIMULATED_INITIAL_CASH", "10000.0"))
+        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
 
     @classmethod
     def validate(cls):

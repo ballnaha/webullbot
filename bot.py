@@ -75,11 +75,43 @@ class TradingBot:
                 owned_qty = owned_position['qty'] if owned_position else 0
                 
                 if signal == "BUY":
-                    if owned_qty > 0:
-                        self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
+                    if symbol.endswith(".HK"):
+                        slot_size = min(self.trade_qty_hk, Config.HK_MAX_QTY_PER_SLOT)
+                        current_slots = int(owned_qty / slot_size) if slot_size > 0 else 0
+                        
+                        if current_slots >= Config.HK_MAX_SLOTS:
+                            self.add_log(f"Signal is BUY for {symbol} but already own {owned_qty} shares ({current_slots}/{Config.HK_MAX_SLOTS} slots). Skipping.")
+                        elif current_price > Config.HK_MAX_PRICE_PER_SLOT:
+                            self.add_log(f"Signal is BUY for {symbol} but current price ${current_price:.2f} is above max buy price per slot ${Config.HK_MAX_PRICE_PER_SLOT:.2f}. Skipping.")
+                        else:
+                            qty_to_trade = slot_size
+                            if qty_to_trade <= 0:
+                                self.add_log(f"Signal is BUY for {symbol} but slot quantity size is {qty_to_trade}. Skipping.")
+                            else:
+                                self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})...")
+                                order_res = self.client.place_order(
+                                    symbol=symbol,
+                                    qty=qty_to_trade,
+                                    action="BUY",
+                                    order_type="MKT"
+                                )
+                                
+                                if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                    exec_price = order_res.get("price", current_price)
+                                    self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})")
+                                    self.trades_history.append({
+                                        "time": datetime.now().strftime("%H:%M:%S"),
+                                        "symbol": symbol,
+                                        "action": "BUY",
+                                        "qty": qty_to_trade,
+                                        "price": exec_price,
+                                        "status": order_res.get("status")
+                                    })
+                                else:
+                                    self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
                     else:
-                        if symbol.endswith(".HK"):
-                            qty_to_trade = self.trade_qty_hk
+                        if owned_qty > 0:
+                            self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
                         else:
                             # Cash-based budget conversion to fractional shares for US stocks
                             if current_price > 0:
@@ -88,30 +120,30 @@ class TradingBot:
                             else:
                                 qty_to_trade = 0
                                 
-                        if qty_to_trade <= 0:
-                            self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")
-                        else:
-                            self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Budget: ${self.trade_qty_us} for US / Qty: {self.trade_qty_hk} for HK)...")
-                            order_res = self.client.place_order(
-                                symbol=symbol,
-                                qty=qty_to_trade,
-                                action="BUY",
-                                order_type="MKT"
-                            )
-                            
-                            if order_res.get("status") in ["FILLED", "SUBMITTED"]:
-                                exec_price = order_res.get("price", current_price)
-                                self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f}")
-                                self.trades_history.append({
-                                    "time": datetime.now().strftime("%H:%M:%S"),
-                                    "symbol": symbol,
-                                    "action": "BUY",
-                                    "qty": qty_to_trade,
-                                    "price": exec_price,
-                                    "status": order_res.get("status")
-                                })
+                            if qty_to_trade <= 0:
+                                self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")
                             else:
-                                self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
+                                self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Budget: ${self.trade_qty_us})...")
+                                order_res = self.client.place_order(
+                                    symbol=symbol,
+                                    qty=qty_to_trade,
+                                    action="BUY",
+                                    order_type="MKT"
+                                )
+                                
+                                if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                    exec_price = order_res.get("price", current_price)
+                                    self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f}")
+                                    self.trades_history.append({
+                                        "time": datetime.now().strftime("%H:%M:%S"),
+                                        "symbol": symbol,
+                                        "action": "BUY",
+                                        "qty": qty_to_trade,
+                                        "price": exec_price,
+                                        "status": order_res.get("status")
+                                    })
+                                else:
+                                    self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
                             
                 elif signal == "SELL":
                     if owned_qty <= 0:

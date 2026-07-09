@@ -77,11 +77,13 @@ export default function TradeDialog({
     ? 'linear-gradient(135deg, #16c784, #0fa56c)' 
     : 'linear-gradient(135deg, #ea3943, #d6222b)';
 
-  const quickQtysShares = [1, 5, 10, 50, 100];
+  const isHk = symbol.toUpperCase().endsWith('.HK');
+  const quickQtysShares = isHk ? [100, 200, 500, 1000, 2000] : [1, 5, 10, 50, 100];
   const quickQtysCash = [1, 5, 10, 50, 100];
 
   const quickQtys = isCash ? quickQtysCash : quickQtysShares;
-  const stepSize = 1;
+  const stepSize = isHk ? 100 : 1;
+  const minQty = isCash ? 0.01 : (isHk ? 100 : 1);
 
   const inputLabel = isCash
     ? 'ระบุจำนวนเงิน (USD) ที่ต้องการส่งคำสั่ง:'
@@ -213,18 +215,18 @@ export default function TradeDialog({
               autoFocus
               slotProps={{
                 input: {
-                  inputProps: { min: isCash ? 0.01 : 1, step: stepSize, style: { textAlign: 'center' } },
+                  inputProps: { min: minQty, step: stepSize, style: { textAlign: 'center' } },
                   startAdornment: (
                     <InputAdornment position="start">
                       <IconButton 
                         size="small" 
                         onClick={() => {
-                          const currentVal = parseFloat(qty.toString()) || (isCash ? 1 : 1);
-                          const newVal = Math.max(isCash ? 0.01 : 1, currentVal - stepSize);
+                          const currentVal = parseFloat(qty.toString()) || minQty;
+                          const newVal = Math.max(minQty, currentVal - stepSize);
                           setQty(isCash ? newVal.toString() : Math.floor(newVal).toString());
                           setError(null);
                         }}
-                        disabled={loading || (parseFloat(qty.toString()) || 1) <= (isCash ? 0.01 : 1)}
+                        disabled={loading || (parseFloat(qty.toString()) || minQty) <= minQty}
                         sx={{ color: 'text.secondary' }}
                       >
                         <Minus size={16} />
@@ -236,7 +238,7 @@ export default function TradeDialog({
                       <IconButton 
                         size="small" 
                         onClick={() => {
-                          const currentVal = parseFloat(qty.toString()) || (isCash ? 1 : 1);
+                          const currentVal = parseFloat(qty.toString()) || minQty;
                           const newVal = currentVal + stepSize;
                           setQty(isCash ? newVal.toString() : Math.floor(newVal).toString());
                           setError(null);

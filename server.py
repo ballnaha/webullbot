@@ -145,6 +145,11 @@ class ConfigModel(BaseModel):
     symbols: List[str]
     quantity: int
     quantity_hk: Optional[int] = 100
+    hk_max_slots: Optional[int] = None
+    hk_max_price_per_slot: Optional[float] = None
+    hk_max_qty_per_slot: Optional[int] = None
+    hk_filter_price_limit: Optional[float] = 20.0
+    hk_filter_price_operator: Optional[str] = "le"
     interval: int
     candle_period: str
     strategy: str
@@ -171,6 +176,11 @@ def get_status():
         "symbols": Config.DEFAULT_SYMBOLS,
         "quantity": Config.TRADE_QUANTITY,
         "quantity_hk": Config.TRADE_QUANTITY_HK,
+        "hk_max_slots": Config.HK_MAX_SLOTS,
+        "hk_max_price_per_slot": Config.HK_MAX_PRICE_PER_SLOT,
+        "hk_max_qty_per_slot": Config.HK_MAX_QTY_PER_SLOT,
+        "hk_filter_price_limit": Config.HK_FILTER_PRICE_LIMIT,
+        "hk_filter_price_operator": Config.HK_FILTER_PRICE_OPERATOR,
         "interval": Config.INTERVAL,
         "candle_period": Config.CANDLE_PERIOD,
         "has_client": bot_state["client"] is not None
@@ -353,6 +363,19 @@ def update_config(data: ConfigModel):
                 f.write(f"TRADE_QUANTITY={data.quantity}\n")
                 qty_hk = data.quantity_hk if data.quantity_hk is not None else 100
                 f.write(f"TRADE_QUANTITY_HK={qty_hk}\n")
+                
+                hk_max_slots = data.hk_max_slots if data.hk_max_slots is not None else Config.HK_MAX_SLOTS
+                hk_max_price_per_slot = data.hk_max_price_per_slot if data.hk_max_price_per_slot is not None else Config.HK_MAX_PRICE_PER_SLOT
+                hk_max_qty_per_slot = data.hk_max_qty_per_slot if data.hk_max_qty_per_slot is not None else Config.HK_MAX_QTY_PER_SLOT
+                hk_filter_price_limit = data.hk_filter_price_limit if data.hk_filter_price_limit is not None else Config.HK_FILTER_PRICE_LIMIT
+                hk_filter_price_operator = data.hk_filter_price_operator if data.hk_filter_price_operator is not None else Config.HK_FILTER_PRICE_OPERATOR
+                
+                f.write(f"HK_MAX_SLOTS={hk_max_slots}\n")
+                f.write(f"HK_MAX_PRICE_PER_SLOT={hk_max_price_per_slot}\n")
+                f.write(f"HK_MAX_QTY_PER_SLOT={hk_max_qty_per_slot}\n")
+                f.write(f"HK_FILTER_PRICE_LIMIT={hk_filter_price_limit}\n")
+                f.write(f"HK_FILTER_PRICE_OPERATOR={hk_filter_price_operator}\n")
+                
                 f.write(f"INTERVAL={data.interval}\n")
                 f.write(f"CANDLE_PERIOD={data.candle_period.lower()}\n")
                 f.write(f"SIMULATED_INITIAL_CASH={Config.SIMULATED_INITIAL_CASH}\n")

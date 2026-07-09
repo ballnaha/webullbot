@@ -17,7 +17,7 @@ rem 1. Stop Python FastAPI Backend (Port 8484)
 set backend_stopped=0
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :8484 ^| findstr LISTENING') do (
     taskkill /f /pid %%a >nul 2>&1
-    echo [OK] Terminated Backend Service (PID: %%a) running on port 8484
+    echo [OK] Terminated Backend Service PID %%a running on port 8484
     set backend_stopped=1
 )
 if !backend_stopped! equ 0 (
@@ -30,7 +30,7 @@ rem 2. Stop Next.js Frontend (Port 4018)
 set frontend_stopped=0
 for /f "tokens=5" %%a in ('netstat -aon ^| findstr :4018 ^| findstr LISTENING') do (
     taskkill /f /pid %%a >nul 2>&1
-    echo [OK] Terminated Next.js Service (PID: %%a) running on port 4018
+    echo [OK] Terminated Next.js Service PID %%a running on port 4018
     set frontend_stopped=1
 )
 if !frontend_stopped! equ 0 (

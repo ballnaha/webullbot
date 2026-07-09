@@ -43,6 +43,11 @@ interface BotStatus {
   symbols: string[];
   quantity: number;
   quantity_hk: number;
+  hk_max_slots?: number;
+  hk_max_price_per_slot?: number;
+  hk_max_qty_per_slot?: number;
+  hk_filter_price_limit?: number;
+  hk_filter_price_operator?: string;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -151,10 +156,11 @@ export default function SettingsPage() {
   const [formUsSymbols, setFormUsSymbols] = useState("");
   const [formHkSymbols, setFormHkSymbols] = useState("");
   const [formQty, setFormQty] = useState(1);
-  const [formQtyHk, setFormQtyHk] = useState(100);
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
   const [formStrategy, setFormStrategy] = useState("sma");
+  const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
+  const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
   const [isConfigInitialized, setIsConfigInitialized] = useState(false);
 
   // Credentials config inputs
@@ -193,10 +199,11 @@ export default function SettingsPage() {
       setFormUsSymbols(us);
       setFormHkSymbols(hk);
       setFormQty(status.quantity);
-      setFormQtyHk(status.quantity_hk);
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
       setFormStrategy(status.strategy);
+      setFormHkFilterPriceLimit(status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0);
+      setFormHkFilterPriceOperator(status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le");
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -231,10 +238,11 @@ export default function SettingsPage() {
           trade_mode: formMode,
           symbols: combinedSymbols,
           quantity: formQty,
-          quantity_hk: formQtyHk,
           interval: formInterval,
           candle_period: formPeriod,
           strategy: formStrategy,
+          hk_filter_price_limit: formHkFilterPriceLimit,
+          hk_filter_price_operator: formHkFilterPriceOperator,
           username: formUsername,
           password: formPassword,
           trade_pin: formTradePin,
@@ -267,10 +275,11 @@ export default function SettingsPage() {
             setFormUsSymbols(us);
             setFormHkSymbols(hk);
             setFormQty(freshStatus.quantity);
-            setFormQtyHk(freshStatus.quantity_hk);
             setFormInterval(freshStatus.interval);
             setFormPeriod(freshStatus.candle_period);
             setFormStrategy(freshStatus.strategy);
+            setFormHkFilterPriceLimit(freshStatus.hk_filter_price_limit !== undefined ? freshStatus.hk_filter_price_limit : 20.0);
+            setFormHkFilterPriceOperator(freshStatus.hk_filter_price_operator !== undefined ? freshStatus.hk_filter_price_operator : "le");
           }
         } catch (_) { /* silent */ }
         setIsConfigInitialized(true);
@@ -422,6 +431,67 @@ export default function SettingsPage() {
                     disabled={actionLoading}
                     helperText="ป้อนเฉพาะเลขรหัสหุ้นฮ่องกงได้ บอทจะเติมนามสกุล .HK ให้โดยอัตโนมัติ"
                   />
+
+                  {/* 4.5. HK Price Scanner Filter Settings */}
+                  <Box sx={{ p: 3, bgcolor: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px solid rgba(148, 163, 184, 0.08)', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                    <Typography variant="subtitle2" color="secondary.main" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      🇭🇰 ตั้งค่าการคัดกรองราคาสัญญาณหุ้นฮ่องกง (HK Price Scanner Filter)
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+                      <FormControl fullWidth size="small">
+                        <InputLabel>ตัวดำเนินการคัดกรองราคา (Price Operator)</InputLabel>
+                        <Select
+                          value={formHkFilterPriceOperator}
+                          label="ตัวดำเนินการคัดกรองราคา (Price Operator)"
+                          onChange={(e) => setFormHkFilterPriceOperator(e.target.value)}
+                          disabled={actionLoading}
+                          sx={{ borderRadius: '12px' }}
+                        >
+                          <MenuItem value="ge">มากกว่าหรือเท่ากับ (≥)</MenuItem>
+                          <MenuItem value="le">น้อยกว่าหรือเท่ากับ (≤)</MenuItem>
+                        </Select>
+                      </FormControl>
+                      <TextField 
+                        fullWidth
+                        size="small"
+                        label="ราคาเป้าหมายคัดกรองสัญญาณ (Filter Price Limit)"
+                        type="number"
+                        value={formHkFilterPriceLimit}
+                        onChange={(e) => setFormHkFilterPriceLimit(Math.max(0, parseFloat(e.target.value) || 0))}
+                        disabled={actionLoading}
+                        slotProps={{
+                          htmlInput: { min: 0, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => setFormHkFilterPriceLimit(prev => Math.max(0, prev - 1))}
+                                  disabled={actionLoading || formHkFilterPriceLimit <= 0}
+                                  sx={{ color: 'text.secondary', p: 0.5 }}
+                                >
+                                  <Minus size={14} />
+                                </IconButton>
+                              </InputAdornment>
+                            ),
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <IconButton 
+                                  size="small" 
+                                  onClick={() => setFormHkFilterPriceLimit(prev => prev + 1)}
+                                  disabled={actionLoading}
+                                  sx={{ color: 'text.secondary', p: 0.5 }}
+                                >
+                                  <Plus size={14} />
+                                </IconButton>
+                              </InputAdornment>
+                            )
+                          }
+                        }}
+                        helperText="ค่าคัดกรองราคานี้จะใช้ในการแสดงผลหุ้นฮ่องกงบนแผงควบคุมหลักโดยเริ่มต้น"
+                      />
+                    </Box>
+                  </Box>
                 </Box>
 
                 {/* 5. Parameters grid */}
@@ -453,46 +523,6 @@ export default function SettingsPage() {
                             <IconButton 
                               size="small" 
                               onClick={() => setFormQty(prev => prev + 1)}
-                              disabled={actionLoading}
-                              sx={{ color: 'text.secondary', p: 0.5 }}
-                            >
-                              <Plus size={14} />
-                            </IconButton>
-                          </InputAdornment>
-                        )
-                      }
-                    }}
-                    required
-                    disabled={actionLoading}
-                  />
-
-                  <TextField 
-                    fullWidth
-                    size="small"
-                    label="จำนวนหุ้นซื้อเริ่มต้น ฮ่องกง (HK Shares Qty)"
-                    type="number"
-                    value={formQtyHk}
-                    onChange={(e) => setFormQtyHk(Math.max(1, parseInt(e.target.value) || 1))}
-                    slotProps={{ 
-                      htmlInput: { min: 1, style: { textAlign: 'center', fontWeight: 700 } },
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => setFormQtyHk(prev => Math.max(1, prev - 1))}
-                              disabled={actionLoading || formQtyHk <= 1}
-                              sx={{ color: 'text.secondary', p: 0.5 }}
-                            >
-                              <Minus size={14} />
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => setFormQtyHk(prev => prev + 1)}
                               disabled={actionLoading}
                               sx={{ color: 'text.secondary', p: 0.5 }}
                             >

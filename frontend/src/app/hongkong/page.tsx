@@ -25,6 +25,7 @@ import {
   InputLabel, 
   Switch, 
   FormControlLabel,
+  InputAdornment,
   Alert, 
   AlertTitle, 
   Divider, 
@@ -65,9 +66,11 @@ import {
   UserCheck,
   Eye,
   Trash2,
+  Minus,
   Plus,
   ListPlus,
-  X
+  X,
+  Save
 } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8484/api";
@@ -94,6 +97,11 @@ interface BotStatus {
   symbols: string[];
   quantity: number;
   quantity_hk: number;
+  hk_max_slots?: number;
+  hk_max_price_per_slot?: number;
+  hk_max_qty_per_slot?: number;
+  hk_filter_price_limit?: number;
+  hk_filter_price_operator?: string;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -321,8 +329,8 @@ export default function HongkongHome() {
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10); // Default to 10 rows for optimal visual balance
-  const [maxPrice, setMaxPrice] = useState<string>("20"); // Default to 20 as requested
-  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); // Default to le (<=)
+  const [maxPrice, setMaxPrice] = useState<string>(""); 
+  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); 
   
   // Watchlist Drawer States
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -436,9 +444,9 @@ export default function HongkongHome() {
         showToast(`เกิดข้อผิดพลาด: ${data.detail || "ไม่สามารถอัปเดตข้อมูลได้"}`, "error");
       } else {
         showToast("บันทึกการตั้งค่ารายชื่อหุ้นฮ่องกงและรีโหลดบอทสำเร็จ!", "success");
-        setIsConfigInitialized(false);
         setDrawerOpen(false);
         await loadData(true);
+        setIsConfigInitialized(false);
       }
     } catch (err) {
       showToast("ไม่สามารถบันทึกได้ กรุณาลองใหม่อีกครั้ง", "error");
@@ -460,6 +468,15 @@ export default function HongkongHome() {
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
   const [formStrategy, setFormStrategy] = useState("sma");
+  
+  // HK Settings Drawer State
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
+  const [formQtyHk, setFormQtyHk] = useState(100);
+  const [formHkMaxSlots, setFormHkMaxSlots] = useState(1);
+  const [formHkMaxPricePerSlot, setFormHkMaxPricePerSlot] = useState(999999.0);
+  const [formHkMaxQtyPerSlot, setFormHkMaxQtyPerSlot] = useState(100);
+  const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
+  const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
   
   // Credentials config inputs
   const [formUsername, setFormUsername] = useState("");
@@ -522,6 +539,19 @@ export default function HongkongHome() {
       setFormUsSymbols(us);
       setFormHkSymbols(hk);
       setFormQty(status.quantity);
+      setFormQtyHk(status.quantity_hk !== undefined ? status.quantity_hk : 100);
+      setFormHkMaxSlots(status.hk_max_slots !== undefined ? status.hk_max_slots : 1);
+      setFormHkMaxPricePerSlot(status.hk_max_price_per_slot !== undefined ? status.hk_max_price_per_slot : 999999.0);
+      setFormHkMaxQtyPerSlot(status.hk_max_qty_per_slot !== undefined ? status.hk_max_qty_per_slot : 100);
+      
+      const filterLimit = status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0;
+      const filterOperator = status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le";
+      
+      setFormHkFilterPriceLimit(filterLimit);
+      setFormHkFilterPriceOperator(filterOperator);
+      setMaxPrice(filterLimit.toString());
+      setPriceOperator(filterOperator as "le" | "ge");
+
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
       setFormStrategy(status.strategy);
@@ -716,16 +746,116 @@ export default function HongkongHome() {
         showToast(`Config Save Error: ${data.detail || "Validation failed"}`, "error");
       } else {
         showToast("บันทึกการตั้งค่าระบบเรียบร้อยแล้ว!", "success");
-        setIsConfigInitialized(false); // Unlock to fetch updated server values
         setFormUsername("");
         setFormPassword("");
         setFormTradePin("");
         setFormAppKey("");
         setFormAppSecret("");
         await loadData();
+        setIsConfigInitialized(false); // Unlock to fetch updated server values
       }
     } catch (err) {
       showToast("Failed to update config. Backend might be reinitializing.", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSaveHkSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trade_mode: status.trade_mode,
+          symbols: status.symbols,
+          quantity: status.quantity,
+          quantity_hk: formQtyHk,
+          hk_max_slots: formHkMaxSlots,
+          hk_max_price_per_slot: formHkMaxPricePerSlot,
+          hk_max_qty_per_slot: formHkMaxQtyPerSlot,
+          hk_filter_price_limit: formHkFilterPriceLimit,
+          hk_filter_price_operator: formHkFilterPriceOperator,
+          interval: formInterval,
+          candle_period: formPeriod,
+          strategy: formStrategy,
+          username: "",
+          password: "",
+          trade_pin: "",
+          app_key: "",
+          app_secret: ""
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`บันทึกการตั้งค่าล้มเหลว: ${data.detail || "Validation failed"}`, "error");
+      } else {
+        showToast("บันทึกการตั้งค่าบอทฮ่องกงเรียบร้อยแล้ว!", "success");
+        setSettingsDrawerOpen(false);
+        await loadData(true);
+        setIsConfigInitialized(false); // Reload status from server
+      }
+    } catch (err) {
+      showToast("ไม่สามารถอัปเดตการตั้งค่าได้หลังบ้านอาจรีสตาร์ทอยู่", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLoadHkBudget300Defaults = () => {
+    setFormQtyHk(100);
+    setFormHkMaxSlots(3);
+    setFormHkMaxPricePerSlot(7.8);
+    setFormHkMaxQtyPerSlot(100);
+    setFormInterval(60);
+    setFormHkFilterPriceLimit(20.0);
+    setFormHkFilterPriceOperator("le");
+    showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $300 (สะสมสูงสุด 3 Slots) เรียบร้อยแล้วครับ", "info");
+  };
+
+  const handleQuickSaveFilter = async () => {
+    setActionLoading(true);
+    try {
+      const priceNum = parseFloat(maxPrice);
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trade_mode: status.trade_mode,
+          symbols: status.symbols,
+          quantity: status.quantity,
+          quantity_hk: status.quantity_hk,
+          hk_max_slots: status.hk_max_slots,
+          hk_max_price_per_slot: status.hk_max_price_per_slot,
+          hk_max_qty_per_slot: status.hk_max_qty_per_slot,
+          hk_filter_price_limit: !isNaN(priceNum) ? priceNum : 20.0,
+          hk_filter_price_operator: priceOperator,
+          interval: status.interval,
+          candle_period: status.candle_period,
+          strategy: status.strategy,
+          username: "",
+          password: "",
+          trade_pin: "",
+          app_key: "",
+          app_secret: ""
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`บันทึกตัวกรองล้มเหลว: ${data.detail || "Validation failed"}`, "error");
+      } else {
+        showToast("บันทึกตัวกรองราคา HK เริ่มต้นเป็นค่าปัจจุบันเรียบร้อยแล้ว!", "success");
+        setFormHkFilterPriceLimit(!isNaN(priceNum) ? priceNum : 20.0);
+        setFormHkFilterPriceOperator(priceOperator);
+        await loadData(true);
+        setIsConfigInitialized(false);
+      }
+    } catch (err) {
+      showToast("ไม่สามารถบันทึกตัวกรองได้หลังบ้านอาจรีสตาร์ทอยู่", "error");
     } finally {
       setActionLoading(false);
     }
@@ -747,6 +877,11 @@ export default function HongkongHome() {
           symbols: updatedSymbols,
           quantity: status.quantity,
           quantity_hk: status.quantity_hk,
+          hk_max_slots: status.hk_max_slots,
+          hk_max_price_per_slot: status.hk_max_price_per_slot,
+          hk_max_qty_per_slot: status.hk_max_qty_per_slot,
+          hk_filter_price_limit: status.hk_filter_price_limit,
+          hk_filter_price_operator: status.hk_filter_price_operator,
           interval: status.interval,
           candle_period: status.candle_period,
           strategy: status.strategy,
@@ -759,8 +894,8 @@ export default function HongkongHome() {
       });
       if (res.ok) {
         showToast(`เพิ่ม ${symbol} เข้า Watchlist และรีสตาร์ทบอทสำเร็จ!`, "success");
-        setIsConfigInitialized(false);
         await loadData(true);
+        setIsConfigInitialized(false);
       } else {
         const data = await res.json();
         showToast(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
@@ -817,6 +952,11 @@ export default function HongkongHome() {
           symbols: updatedSymbols,
           quantity: status.quantity,
           quantity_hk: status.quantity_hk,
+          hk_max_slots: status.hk_max_slots,
+          hk_max_price_per_slot: status.hk_max_price_per_slot,
+          hk_max_qty_per_slot: status.hk_max_qty_per_slot,
+          hk_filter_price_limit: status.hk_filter_price_limit,
+          hk_filter_price_operator: status.hk_filter_price_operator,
           interval: status.interval,
           candle_period: status.candle_period,
           strategy: status.strategy,
@@ -829,10 +969,10 @@ export default function HongkongHome() {
       });
       if (res.ok) {
         showToast("เพิ่มหุ้นแนะนำทั้งหมดเข้าสแกนเนอร์บอทและรีสตาร์ทสำเร็จ!", "success");
-        setIsConfigInitialized(false);
         const newHkSymbols = updatedSymbols.filter(s => s.endsWith('.HK'));
         setDrawerHkSymbols(newHkSymbols);
         await loadData(true);
+        setIsConfigInitialized(false);
       } else {
         const data = await res.json();
         showToast(`ล้มเหลว: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
@@ -1014,6 +1154,7 @@ export default function HongkongHome() {
                   <FormControl size="small" sx={{ width: 65 }}>
                     <Select
                       value={priceOperator}
+                      disabled={!isConfigInitialized || actionLoading || !connected}
                       onChange={(e) => {
                         setPriceOperator(e.target.value as "le" | "ge");
                         setPage(0);
@@ -1034,6 +1175,7 @@ export default function HongkongHome() {
                     size="small"
                     label="ราคา (Price)"
                     type="number"
+                    disabled={!isConfigInitialized || actionLoading}
                     value={maxPrice}
                     onChange={(e) => {
                       setMaxPrice(e.target.value);
@@ -1053,6 +1195,27 @@ export default function HongkongHome() {
                       }
                     }}
                   />
+                  <IconButton
+                    color="primary"
+                    size="small"
+                    onClick={handleQuickSaveFilter}
+                    disabled={actionLoading || !connected || !isConfigInitialized}
+                    sx={{
+                      mr: 1.5,
+                      bgcolor: 'rgba(59, 130, 246, 0.05)',
+                      border: '1px solid rgba(59, 130, 246, 0.2)',
+                      borderRadius: '8px',
+                      height: 34,
+                      width: 34,
+                      '&:hover': {
+                        bgcolor: 'rgba(59, 130, 246, 0.15)',
+                        borderColor: '#3b82f6',
+                      }
+                    }}
+                    title="บันทึกตัวกรองราคานี้เป็นค่าเริ่มต้น"
+                  >
+                    <Save size={16} />
+                  </IconButton>
                   <Button
                     variant="outlined"
                     color="primary"
@@ -1075,6 +1238,30 @@ export default function HongkongHome() {
                     }}
                   >
                     จัดการรายการหุ้น (Watchlist)
+                  </Button>
+
+                  <Button
+                    variant="outlined"
+                    color="secondary"
+                    size="small"
+                    disabled={actionLoading || !connected}
+                    onClick={() => setSettingsDrawerOpen(true)}
+                    startIcon={<Settings size={16} />}
+                    sx={{ 
+                      height: 34, 
+                      borderRadius: '8px', 
+                      fontSize: '0.78rem',
+                      px: 2,
+                      mr: 1.5,
+                      borderColor: 'rgba(99, 102, 241, 0.4)',
+                      color: '#a5b4fc',
+                      '&:hover': {
+                        borderColor: '#6366f1',
+                        bgcolor: 'rgba(99, 102, 241, 0.05)'
+                      }
+                    }}
+                  >
+                    ตั้งค่าบอท (Settings)
                   </Button>
 
                   <Button
@@ -1634,6 +1821,391 @@ export default function HongkongHome() {
             * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
           </Typography>
         </Box>
+      </Box>
+    </Drawer>
+
+    {/* HK Settings Drawer */}
+    <Drawer
+      anchor="right"
+      open={settingsDrawerOpen}
+      onClose={() => setSettingsDrawerOpen(false)}
+    >
+      <Box
+        sx={{
+          width: { xs: '100vw', sm: 500 },
+          height: '100%',
+          bgcolor: '#0f141c',
+          borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+          p: 3,
+          display: 'flex',
+          flexDirection: 'column',
+          gap: 3,
+          boxSizing: 'border-box'
+        }}
+      >
+        {/* Drawer Header */}
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Settings size={20} color="#6366f1" />
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>
+              ตั้งค่าบอทเทรดฮ่องกง (HK Settings)
+            </Typography>
+          </Box>
+          <IconButton onClick={() => setSettingsDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
+            <X size={18} />
+          </IconButton>
+        </Box>
+
+        <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
+
+        {/* Settings Form */}
+        <form onSubmit={handleSaveHkSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1, pr: 1 }}>
+            
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                ⚙️ การตั้งค่าการจำกัดความเสี่ยง (Trading Limits & Slots)
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                color="secondary"
+                onClick={handleLoadHkBudget300Defaults}
+                sx={{ 
+                  fontSize: '0.72rem', 
+                  py: 0.2, 
+                  px: 1.2, 
+                  borderRadius: '6px',
+                  borderColor: 'rgba(99, 102, 241, 0.4)',
+                  color: '#a5b4fc',
+                  '&:hover': {
+                    borderColor: '#6366f1',
+                    bgcolor: 'rgba(99, 102, 241, 0.05)'
+                  }
+                }}
+              >
+                แนะนำสำหรับงบ $300
+              </Button>
+            </Box>
+
+            <TextField 
+              fullWidth
+              size="small"
+              label="จำนวนหุ้นซื้อเริ่มต้น ฮ่องกง (HK Shares Qty)"
+              type="number"
+              value={formQtyHk}
+              onChange={(e) => setFormQtyHk(Math.max(100, parseInt(e.target.value) || 100))}
+              slotProps={{ 
+                htmlInput: { min: 100, step: 100, style: { textAlign: 'center', fontWeight: 700 } },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormQtyHk(prev => Math.max(100, prev - 100))}
+                        disabled={actionLoading || formQtyHk <= 100}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Minus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormQtyHk(prev => prev + 100)}
+                        disabled={actionLoading}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Plus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              required
+              disabled={actionLoading}
+            />
+
+            <TextField 
+              fullWidth
+              size="small"
+              label="จำกัดจำนวน Slot ซื้อสูงสุด (HK Max Slots)"
+              type="number"
+              value={formHkMaxSlots}
+              onChange={(e) => setFormHkMaxSlots(Math.max(1, parseInt(e.target.value) || 1))}
+              slotProps={{ 
+                htmlInput: { min: 1, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxSlots(prev => Math.max(1, prev - 1))}
+                        disabled={actionLoading || formHkMaxSlots <= 1}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Minus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxSlots(prev => prev + 1)}
+                        disabled={actionLoading}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Plus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              required
+              disabled={actionLoading}
+            />
+
+            <TextField 
+              fullWidth
+              size="small"
+              label="ราคาซื้อสูงสุดต่อ Slot (HK Max Price)"
+              type="number"
+              value={formHkMaxPricePerSlot}
+              onChange={(e) => setFormHkMaxPricePerSlot(Math.max(0, parseFloat(e.target.value) || 0))}
+              slotProps={{ 
+                htmlInput: { min: 0, step: 0.1, style: { textAlign: 'center', fontWeight: 700 } },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxPricePerSlot(prev => Math.max(0.0, Math.round((prev - 1) * 10) / 10))}
+                        disabled={actionLoading || formHkMaxPricePerSlot <= 0}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Minus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxPricePerSlot(prev => Math.round((prev + 1) * 10) / 10)}
+                        disabled={actionLoading}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Plus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              required
+              disabled={actionLoading}
+              helperText="บอทจะไม่ซื้อถ้าราคาหุ้นเกินค่านี้"
+            />
+
+            <TextField 
+              fullWidth
+              size="small"
+              label="จำนวนซื้อสูงสุดต่อ Slot (HK Max Qty)"
+              type="number"
+              value={formHkMaxQtyPerSlot}
+              onChange={(e) => setFormHkMaxQtyPerSlot(Math.max(100, parseInt(e.target.value) || 100))}
+              slotProps={{ 
+                htmlInput: { min: 100, step: 100, style: { textAlign: 'center', fontWeight: 700 } },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxQtyPerSlot(prev => Math.max(100, prev - 100))}
+                        disabled={actionLoading || formHkMaxQtyPerSlot <= 100}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Minus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormHkMaxQtyPerSlot(prev => prev + 100)}
+                        disabled={actionLoading}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Plus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              helperText="จำกัดปริมาณซื้อสูงสุดต่อหนึ่งไม้"
+            />
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
+              🔍 ตั้งค่าการกรองหน้าแผงสัญญาณ (Signals Price Filter)
+            </Typography>
+
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel>ตัวดำเนินการกรองราคา</InputLabel>
+                <Select
+                  value={formHkFilterPriceOperator}
+                  label="ตัวดำเนินการกรองราคา"
+                  onChange={(e) => setFormHkFilterPriceOperator(e.target.value)}
+                  disabled={actionLoading}
+                  sx={{ borderRadius: '8px' }}
+                >
+                  <MenuItem value="ge">มากกว่าหรือเท่ากับ (≥)</MenuItem>
+                  <MenuItem value="le">น้อยกว่าหรือเท่ากับ (≤)</MenuItem>
+                </Select>
+              </FormControl>
+
+              <TextField 
+                fullWidth
+                size="small"
+                label="ราคาเป้าหมายตัวกรอง"
+                type="number"
+                value={formHkFilterPriceLimit}
+                onChange={(e) => setFormHkFilterPriceLimit(Math.max(0, parseFloat(e.target.value) || 0))}
+                disabled={actionLoading}
+                slotProps={{
+                  htmlInput: { min: 0, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkFilterPriceLimit(prev => Math.max(0, prev - 1))}
+                          disabled={actionLoading || formHkFilterPriceLimit <= 0}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Minus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkFilterPriceLimit(prev => prev + 1)}
+                          disabled={actionLoading}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Plus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                }}
+              />
+            </Box>
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
+              📊 ตั้งค่าแท่งเทียนและกลยุทธ์ (Strategy & Timeframe)
+            </Typography>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>กลยุทธ์ส่งสัญญาณ (Strategy)</InputLabel>
+              <Select
+                value={formStrategy}
+                label="กลยุทธ์ส่งสัญญาณ (Strategy)"
+                onChange={(e) => setFormStrategy(e.target.value)}
+                disabled={actionLoading}
+                sx={{ borderRadius: '8px' }}
+              >
+                <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
+                <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
+                <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+              </Select>
+            </FormControl>
+
+            <FormControl fullWidth size="small">
+              <InputLabel>ช่วงเวลาแท่งเทียน (Candle Period)</InputLabel>
+              <Select
+                value={formPeriod}
+                label="ช่วงเวลาแท่งเทียน (Candle Period)"
+                onChange={(e) => setFormPeriod(e.target.value)}
+                disabled={actionLoading}
+                sx={{ borderRadius: '8px' }}
+              >
+                <MenuItem value="m1">1 นาที (1m)</MenuItem>
+                <MenuItem value="m5">5 นาที (5m)</MenuItem>
+                <MenuItem value="m15">15 นาที (15m)</MenuItem>
+                <MenuItem value="m30">30 นาที (30m)</MenuItem>
+                <MenuItem value="h1">1 ชั่วโมง (1h)</MenuItem>
+                <MenuItem value="d">1 วัน (1d)</MenuItem>
+              </Select>
+            </FormControl>
+
+            <TextField 
+              fullWidth
+              size="small"
+              label="ความถี่ในการอัปเดตสแกนของบอท (หน่วยวินาที)"
+              type="number"
+              value={formInterval}
+              onChange={(e) => setFormInterval(Math.max(30, parseInt(e.target.value) || 60))}
+              slotProps={{ 
+                htmlInput: { min: 30, step: 10, style: { textAlign: 'center', fontWeight: 700 } },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormInterval(prev => Math.max(30, prev - 10))}
+                        disabled={actionLoading || formInterval <= 30}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Minus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton 
+                        size="small" 
+                        onClick={() => setFormInterval(prev => prev + 10)}
+                        disabled={actionLoading}
+                        sx={{ color: 'text.secondary', p: 0.5 }}
+                      >
+                        <Plus size={14} />
+                      </IconButton>
+                    </InputAdornment>
+                  )
+                }
+              }}
+              required
+              disabled={actionLoading}
+            />
+          </Box>
+
+          {/* Drawer Bottom Actions */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              type="submit"
+              fullWidth
+              disabled={actionLoading}
+              sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
+            >
+              {actionLoading ? <RefreshCw className="spin" size={18} /> : "บันทึก & รีโหลดบอท (Save & Hot-Reload)"}
+            </Button>
+            <Typography variant="caption" color="text.secondary" align="center">
+              * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
+            </Typography>
+          </Box>
+        </form>
       </Box>
     </Drawer>
 

@@ -20,14 +20,14 @@ class WebullUnofficialClient(BaseTradingClient):
     def _init_sdk(self):
         try:
             if self.is_paper:
-                from webull import paper_webull
+                from webull.webull import paper_webull
                 self.wb = paper_webull()
             else:
-                from webull import webull
+                from webull.webull import webull
                 self.wb = webull()
-        except ImportError:
+        except ImportError as e:
             raise ImportError(
-                "The unofficial 'webull' package is not installed. "
+                f"The unofficial 'webull' package is not installed or import failed: {e}. "
                 "Please run 'pip install webull' to use this client."
             )
 
