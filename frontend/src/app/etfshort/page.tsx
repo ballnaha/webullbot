@@ -23,7 +23,10 @@ import {
   Info, 
   RefreshCw, 
   Database,
-  AlertCircle
+  AlertCircle,
+  Wallet,
+  TrendingUp,
+  Cpu
 } from 'lucide-react';
 import { useToast } from 'frontend/components/ToastProvider';
 
@@ -47,6 +50,8 @@ export default function ETFShortPage() {
   const [apiError, setApiError] = useState<string | null>(null);
   
   const [etfData, setEtfData] = useState<ETFShortStatus[]>([]);
+  const [balance, setBalance] = useState({ cash: 0, cash_hkd: 0, net_liquidation: 0, net_liquidation_hkd: 0, currency: "USD", currency_hkd: "HKD" });
+  const [status, setStatus] = useState<any>({ strategy_us: "sma", strategy_hk: "sma" });
   const [isLoading, setIsLoading] = useState(true);
   const { showToast } = useToast();
 
@@ -56,8 +61,15 @@ export default function ETFShortPage() {
       if (!resStatus.ok) throw new Error("Backend response error");
       const dataStatus = await resStatus.json();
       setTradeMode(dataStatus.trade_mode);
+      setStatus(dataStatus);
       setConnected(true);
       setApiError(null);
+
+      const resPort = await fetch(`${API_BASE}/portfolio`);
+      if (resPort.ok) {
+        const dataPort = await resPort.json();
+        setBalance(dataPort.balance);
+      }
 
       const resEtf = await fetch(`${API_BASE}/etf-short-status`);
       if (resEtf.ok) {
@@ -115,6 +127,105 @@ export default function ETFShortPage() {
           </Box>
         </CardContent>
       </Card>
+
+      {/* Top Metric Cards Panel */}
+      <Box 
+        sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
+          gap: 3, 
+          mb: 4 
+        }}
+      >
+        {/* Card 1: Available Cash */}
+        <Card sx={{ border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                ยอดเงินสดคงเหลือ
+              </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
+                <Wallet size={18} color="#3b82f6" />
+              </Box>
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, color: '#f8fafc' }}>
+              ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#94a3b8' }}>
+              HK$ {balance.cash_hkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* Card 2: Net Liquidation */}
+        <Card sx={{ border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                มูลค่าพอร์ตรวม
+              </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
+                <TrendingUp size={18} color="#3b82f6" />
+              </Box>
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, color: '#f8fafc' }}>
+              ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: '#94a3b8' }}>
+              HK$ {balance.net_liquidation_hkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Unrealized Profit & Loss */}
+        <Card sx={{ border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%)' }}>
+          <CardContent sx={{ p: 3 }}>
+            {(() => {
+              const totalPnlUsd = etfData.filter(d => !d.underlying.endsWith(".HK")).reduce((sum, d) => sum + d.unrealized_pnl, 0);
+              const totalPnlHkd = etfData.filter(d => d.underlying.endsWith(".HK")).reduce((sum, d) => sum + d.unrealized_pnl, 0);
+              const isProfit = (totalPnlUsd + totalPnlHkd) >= 0;
+              return (
+                <>
+                  <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                      กำไรจำลองสะสม (ETF Short)
+                    </Typography>
+                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: isProfit ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)', display: 'flex' }}>
+                      {isProfit ? <TrendingUp size={18} color="#10b981" /> : <TrendingDown size={18} color="#f43f5e" />}
+                    </Box>
+                  </Box>
+                  <Typography variant="h5" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, color: totalPnlUsd >= 0 ? '#10b981' : '#ef4444' }}>
+                    {totalPnlUsd >= 0 ? "+" : ""}${totalPnlUsd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 700, fontFamily: 'var(--font-mono)', color: totalPnlHkd >= 0 ? '#10b981' : '#ef4444' }}>
+                    HK$ {totalPnlHkd >= 0 ? "+" : ""}{totalPnlHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </Typography>
+                </>
+              );
+            })()}
+          </CardContent>
+        </Card>
+
+        {/* Card 4: Strategy Status */}
+        <Card sx={{ border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%)' }}>
+          <CardContent sx={{ p: 3 }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                กลยุทธ์ที่กำลังทำงาน
+              </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
+                <Cpu size={18} color="#3b82f6" />
+              </Box>
+            </Box>
+            <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, textTransform: 'uppercase', color: '#f8fafc' }}>
+              US: {status.strategy_us || "SMA"}
+            </Typography>
+            <Typography variant="body2" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#60a5fa' }}>
+              HK: {status.strategy_hk || "SMA"}
+            </Typography>
+          </CardContent>
+        </Card>
+      </Box>
 
       {/* 3. ETF Pricing and Holdings Table */}
       <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
