@@ -560,6 +560,66 @@ def place_manual_order(order: OrderModel):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Order execution error: {str(e)}")
 
+def get_symbol_price(symbol: str) -> float:
+    client = bot_state["client"]
+    if not client:
+        return 0.0
+    try:
+        if hasattr(client, "_get_current_price"):
+            return client._get_current_price(symbol)
+        else:
+            df = client.get_bars(symbol=symbol, interval="m5", limit=1)
+            if not df.empty:
+                return float(df['close'].iloc[-1])
+    except Exception:
+        pass
+    return 0.0
+
+@app.get("/api/etf-short-status")
+def get_etf_short_status():
+    client = bot_state["client"]
+    if not client:
+        return []
+        
+    try:
+        positions = client.get_positions()
+        pos_map = {pos['symbol']: pos for pos in positions}
+    except Exception:
+        pos_map = {}
+        
+    result = []
+    from concurrent.futures import ThreadPoolExecutor
+    
+    def process_pair(underlying, etf):
+        underlying_price = get_symbol_price(underlying)
+        etf_price = get_symbol_price(etf)
+        
+        pos = pos_map.get(etf)
+        owned_qty = pos["qty"] if pos else 0.0
+        avg_price = pos["avg_price"] if pos else 0.0
+        market_value = owned_qty * etf_price
+        unrealized_pnl = market_value - (owned_qty * avg_price) if owned_qty > 0 else 0.0
+        
+        return {
+            "underlying": underlying,
+            "underlying_price": underlying_price,
+            "etf": etf,
+            "etf_price": etf_price,
+            "owned_qty": owned_qty,
+            "avg_price": avg_price,
+            "market_value": market_value,
+            "unrealized_pnl": unrealized_pnl
+        }
+        
+    with ThreadPoolExecutor(max_workers=10) as executor:
+        futures = [
+            executor.submit(process_pair, underlying, etf)
+            for underlying, etf in Config.INVERSE_ETF_MAP.items()
+        ]
+        result = [f.result() for f in futures]
+        
+    return result
+
 if __name__ == "__main__":
     import uvicorn
     # Port 8484 is customized for Python server
