@@ -219,7 +219,7 @@ class ConfigModel(BaseModel):
     app_key: Optional[str] = ""
     app_secret: Optional[str] = ""
     webull_api_endpoint: Optional[str] = ""
-    webull_api_region: Optional[str] = "us"
+    webull_api_region: Optional[str] = None
 
 class OrderModel(BaseModel):
     symbol: str
