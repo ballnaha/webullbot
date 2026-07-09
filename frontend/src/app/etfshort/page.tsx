@@ -110,24 +110,6 @@ export default function ETFShortPage() {
         </Alert>
       )}
 
-      {/* 2. Page Description Card */}
-      <Card sx={{ mb: 4, background: 'linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.7) 100%)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.05)' }}>
-        <CardContent sx={{ p: 4, display: 'flex', gap: 3, alignItems: 'flex-start', flexDirection: { xs: 'column', sm: 'row' } }}>
-          <Box sx={{ p: 2, borderRadius: '16px', bgcolor: 'rgba(244, 63, 94, 0.1)', display: 'flex', color: '#f43f5e' }}>
-            <TrendingDown size={32} />
-          </Box>
-          <Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 1, color: '#f8fafc' }}>
-              Inverse ETF Shorting (ขาลงทำกำไรด้วย ETF)
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.6, maxWidth: '850px' }}>
-              หน้าจอนี้สำหรับส่องความเคลื่อนไหวและพอร์ตถือครองของ <strong>Inverse ETF (ETF ขาลง)</strong> เพื่อทำกำไรเมื่อตลาดหุ้นรายตัวหรือดัชนีเข้าสู่แนวโน้มขาลง 
-              โดยระบบจะจับคู่หุ้นปกติ (Underlying) เข้ากับ Inverse ETF ซึ่งเป็นทางเลือกที่ปลอดภัยกว่าการ Short หุ้นปกติโดยตรง (ไม่ต้องยืมหุ้น, ไม่มีค่าธรรมเนียมกู้ยืม, จำกัดความเสี่ยงสูงสุด)
-            </Typography>
-          </Box>
-        </CardContent>
-      </Card>
-
       {/* Top Metric Cards Panel */}
       <Box 
         sx={{ 
@@ -225,6 +207,23 @@ export default function ETFShortPage() {
             </Typography>
           </CardContent>
         </Card>
+      </Box>
+
+      {/* 2. Page Description Card (Minimal) */}
+      <Box sx={{ 
+        mb: 4, 
+        p: 2, 
+        borderRadius: '12px', 
+        bgcolor: 'rgba(30, 41, 59, 0.4)', 
+        border: '1px solid rgba(255,255,255,0.05)',
+        display: 'flex',
+        alignItems: 'center',
+        gap: 1.5
+      }}>
+        <Info size={18} color="#60a5fa" style={{ flexShrink: 0 }} />
+        <Typography variant="body2" color="text.secondary">
+          <strong>Inverse ETF (ETF ขาลง):</strong> ระบบจะจับคู่หุ้นปกติ (Underlying) เข้ากับ Inverse ETF เพื่อทำกำไรเมื่อตลาดเข้าสู่แนวโน้มขาลง เป็นทางเลือกที่ปลอดภัย ไม่ต้องยืมหุ้น, ไม่มีค่าธรรมเนียมกู้ยืม และจำกัดความเสี่ยงสูงสุด
+        </Typography>
       </Box>
 
       {/* 3. ETF Pricing and Holdings Table */}
