@@ -1,4 +1,4 @@
-30684 2026-07-09 14:10:17,061 webull.core.client ERROR HttpError occurred. Host:us-openapi-alb.webullbroker.com SDK-Version:2.0.11 Request:{
+19100 2026-07-09 11:09:54,782 webull.core.client ERROR HttpError occurred. Host:us-openapi-alb.webullbroker.com SDK-Version:2.0.11 Request:{
   "_version": "v2",
   "_action_name": "/openapi/config",
   "_protocol_type": "https",
@@ -9,11 +9,11 @@
     "x-version": "v2",
     "Accept-Encoding": "gzip",
     "x-app-key": "3994bda6099c34f1d43843833beb08a8",
-    "x-timestamp": "2026-07-09T07:10:17Z",
+    "x-timestamp": "2026-07-09T04:09:54Z",
     "x-signature-version": "1.0",
     "x-signature-algorithm": "HMAC-SHA256",
-    "x-signature-nonce": "a65c02b3-6432-5d0f-9f3b-d880df4a15fc",
-    "x-signature": "wESBc7FwhvNc0NIG+UHxZN/TRVFFFOOjO4cRPYMQpCc=",
+    "x-signature-nonce": "5a4765ad-9434-5308-a0c1-9c92c840c0ae",
+    "x-signature": "vEbEan5sngc5p1qVRynDg+zXAFkQs8PBZnapI04yGgU=",
     "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
     "x-webull-client-source": "sdk"
   },

@@ -27,10 +27,6 @@ class WebullOfficialClient(BaseTradingClient):
             self.api_client = ApiClient(self.app_key, self.app_secret, self.region)
             if self.endpoint:
                 self.api_client.add_endpoint(self.region, self.endpoint)
-            else:
-                # Default endpoint based on region (standard OpenAPI endpoint)
-                default_endpoint = "us-openapi-alb.webullbroker.com" if self.region == "us" else "openapi-alb.webullbroker.com"
-                self.api_client.add_endpoint(self.region, default_endpoint)
                 
             self.trade_client = TradeClient(self.api_client)
         except ImportError:
