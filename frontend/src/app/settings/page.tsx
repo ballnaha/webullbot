@@ -52,6 +52,8 @@ interface BotStatus {
   strategy_hk?: string;
   interval: number;
   candle_period: string;
+  simulated_initial_cash?: number;
+  simulated_initial_cash_hkd?: number;
   has_client: boolean;
 }
 
@@ -164,6 +166,8 @@ export default function SettingsPage() {
   const [formStrategyHk, setFormStrategyHk] = useState("sma");
   const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
   const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
+  const [formSimulatedInitialCash, setFormSimulatedInitialCash] = useState<number>(300);
+  const [formSimulatedInitialCashHkd, setFormSimulatedInitialCashHkd] = useState<number>(2340);
   const [isConfigInitialized, setIsConfigInitialized] = useState(false);
 
   // Credentials config inputs
@@ -208,6 +212,8 @@ export default function SettingsPage() {
       setFormStrategyHk(status.strategy_hk !== undefined ? status.strategy_hk : "sma");
       setFormHkFilterPriceLimit(status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0);
       setFormHkFilterPriceOperator(status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le");
+      setFormSimulatedInitialCash(status.simulated_initial_cash !== undefined ? status.simulated_initial_cash : 300);
+      setFormSimulatedInitialCashHkd(status.simulated_initial_cash_hkd !== undefined ? status.simulated_initial_cash_hkd : 2340);
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -248,6 +254,8 @@ export default function SettingsPage() {
           strategy_hk: formStrategyHk,
           hk_filter_price_limit: formHkFilterPriceLimit,
           hk_filter_price_operator: formHkFilterPriceOperator,
+          simulated_initial_cash: formSimulatedInitialCash,
+          simulated_initial_cash_hkd: formSimulatedInitialCashHkd,
           username: formUsername,
           password: formPassword,
           trade_pin: formTradePin,
@@ -286,6 +294,8 @@ export default function SettingsPage() {
             setFormStrategyHk(freshStatus.strategy_hk !== undefined ? freshStatus.strategy_hk : "sma");
             setFormHkFilterPriceLimit(freshStatus.hk_filter_price_limit !== undefined ? freshStatus.hk_filter_price_limit : 20.0);
             setFormHkFilterPriceOperator(freshStatus.hk_filter_price_operator !== undefined ? freshStatus.hk_filter_price_operator : "le");
+            setFormSimulatedInitialCash(freshStatus.simulated_initial_cash !== undefined ? freshStatus.simulated_initial_cash : 300);
+            setFormSimulatedInitialCashHkd(freshStatus.simulated_initial_cash_hkd !== undefined ? freshStatus.simulated_initial_cash_hkd : 2340);
           }
         } catch (_) { /* silent */ }
         setIsConfigInitialized(true);
@@ -397,7 +407,37 @@ export default function SettingsPage() {
                       />
                     )}
                   </Box>
-                ) : null}
+                ) : (
+                  <Box sx={{ p: 3, bgcolor: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px dashed rgba(255,255,255,0.08)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
+                      💵 ตั้งค่าเงินจำลองเริ่มต้น (Local Paper Trading Cash)
+                    </Typography>
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                      <TextField 
+                        fullWidth
+                        size="small"
+                        label="เงินเริ่มต้น USD (USD Starting Cash)"
+                        type="number"
+                        value={formSimulatedInitialCash}
+                        onChange={(e) => {
+                          const val = parseFloat(e.target.value) || 0;
+                          setFormSimulatedInitialCash(val);
+                          setFormSimulatedInitialCashHkd(Math.round(val * 7.8));
+                        }}
+                        disabled={actionLoading}
+                      />
+                      <TextField 
+                        fullWidth
+                        size="small"
+                        label="เงินเริ่มต้น HKD (HKD Starting Cash)"
+                        type="number"
+                        value={formSimulatedInitialCashHkd}
+                        onChange={(e) => setFormSimulatedInitialCashHkd(parseFloat(e.target.value) || 0)}
+                        disabled={actionLoading}
+                      />
+                    </Box>
+                  </Box>
+                )}
 
                 {/* 3. Strategies (US and HK separated) */}
                 <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>

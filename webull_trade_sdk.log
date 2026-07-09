@@ -3626,3 +3626,158 @@
 26772 2026-07-09 14:55:59,105 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
 28396 2026-07-09 14:57:24,989 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
 28396 2026-07-09 14:57:24,989 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+15024 2026-07-09 15:17:18,569 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+19104 2026-07-09 15:17:53,828 webull.core.client ERROR HttpError occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-09T08:17:48Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "40b2c57c-fc08-54e8-9bd4-83c420c11e94",
+    "x-signature": "UhXjJJtdBkuGyvrUhdDHRyjAQfqr9RF5Rga3MA6JzLc=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} ClientException:SDK.HttpError HTTPSConnectionPool(host='th-api.uat.webullbroker.com', port=443): Read timed out. (read timeout=5)
+19104 2026-07-09 15:17:53,828 webull.core.client ERROR HttpError occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-09T08:17:48Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "40b2c57c-fc08-54e8-9bd4-83c420c11e94",
+    "x-signature": "UhXjJJtdBkuGyvrUhdDHRyjAQfqr9RF5Rga3MA6JzLc=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} ClientException:SDK.HttpError HTTPSConnectionPool(host='th-api.uat.webullbroker.com', port=443): Read timed out. (read timeout=5)
+11428 2026-07-09 15:18:20,968 webull.core.client ERROR HttpError occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-09T08:18:14Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "ffb62ddf-6159-50b5-97a2-411e1ac2294c",
+    "x-signature": "uNufUvGmcMJnIZ0EBDDNT7aAEhNMIwoc1sEafcMu8x8=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} ClientException:SDK.HttpError HTTPSConnectionPool(host='th-api.uat.webullbroker.com', port=443): Read timed out. (read timeout=5)
+11428 2026-07-09 15:18:20,968 webull.core.client ERROR HttpError occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-09T08:18:14Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "ffb62ddf-6159-50b5-97a2-411e1ac2294c",
+    "x-signature": "uNufUvGmcMJnIZ0EBDDNT7aAEhNMIwoc1sEafcMu8x8=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} ClientException:SDK.HttpError HTTPSConnectionPool(host='th-api.uat.webullbroker.com', port=443): Read timed out. (read timeout=5)
+11428 2026-07-09 15:18:20,968 webull.core.client ERROR HttpError occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-09T08:18:14Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "ffb62ddf-6159-50b5-97a2-411e1ac2294c",
+    "x-signature": "uNufUvGmcMJnIZ0EBDDNT7aAEhNMIwoc1sEafcMu8x8=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} ClientException:SDK.HttpError HTTPSConnectionPool(host='th-api.uat.webullbroker.com', port=443): Read timed out. (read timeout=5)
+11428 2026-07-09 15:18:45,100 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+11428 2026-07-09 15:18:45,100 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+11428 2026-07-09 15:18:45,100 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+11428 2026-07-09 15:18:45,100 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False

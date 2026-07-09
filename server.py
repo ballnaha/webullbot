@@ -220,6 +220,8 @@ class ConfigModel(BaseModel):
     app_secret: Optional[str] = ""
     webull_api_endpoint: Optional[str] = ""
     webull_api_region: Optional[str] = None
+    simulated_initial_cash: Optional[float] = None
+    simulated_initial_cash_hkd: Optional[float] = None
 
 class OrderModel(BaseModel):
     symbol: str
@@ -248,6 +250,8 @@ def get_status():
         "hk_filter_price_operator": Config.HK_FILTER_PRICE_OPERATOR,
         "interval": Config.INTERVAL,
         "candle_period": Config.CANDLE_PERIOD,
+        "simulated_initial_cash": Config.SIMULATED_INITIAL_CASH,
+        "simulated_initial_cash_hkd": Config.SIMULATED_INITIAL_CASH_HKD,
         "has_client": bot_state["client"] is not None
     }
 
@@ -471,8 +475,10 @@ def update_config(data: ConfigModel):
                 
                 f.write(f"INTERVAL={data.interval}\n")
                 f.write(f"CANDLE_PERIOD={data.candle_period.lower()}\n")
-                f.write(f"SIMULATED_INITIAL_CASH={Config.SIMULATED_INITIAL_CASH}\n")
-                f.write(f"SIMULATED_INITIAL_CASH_HKD={Config.SIMULATED_INITIAL_CASH_HKD}\n")
+                sim_cash = data.simulated_initial_cash if data.simulated_initial_cash is not None else Config.SIMULATED_INITIAL_CASH
+                sim_cash_hkd = data.simulated_initial_cash_hkd if data.simulated_initial_cash_hkd is not None else Config.SIMULATED_INITIAL_CASH_HKD
+                f.write(f"SIMULATED_INITIAL_CASH={sim_cash}\n")
+                f.write(f"SIMULATED_INITIAL_CASH_HKD={sim_cash_hkd}\n")
             
             # Force reload Config in-place
             Config.reload_values()
