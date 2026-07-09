@@ -412,30 +412,19 @@ export default function SettingsPage() {
                     <Typography variant="subtitle2" color="primary.main" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
                       💵 ตั้งค่าเงินจำลองเริ่มต้น (Local Paper Trading Cash)
                     </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
-                      <TextField 
-                        fullWidth
-                        size="small"
-                        label="เงินเริ่มต้น USD (USD Starting Cash)"
-                        type="number"
-                        value={formSimulatedInitialCash}
-                        onChange={(e) => {
-                          const val = parseFloat(e.target.value) || 0;
-                          setFormSimulatedInitialCash(val);
-                          setFormSimulatedInitialCashHkd(Math.round(val * 7.8));
-                        }}
-                        disabled={actionLoading}
-                      />
-                      <TextField 
-                        fullWidth
-                        size="small"
-                        label="เงินเริ่มต้น HKD (HKD Starting Cash)"
-                        type="number"
-                        value={formSimulatedInitialCashHkd}
-                        onChange={(e) => setFormSimulatedInitialCashHkd(parseFloat(e.target.value) || 0)}
-                        disabled={actionLoading}
-                      />
-                    </Box>
+                    <TextField 
+                      fullWidth
+                      size="small"
+                      label="เงินจำลองเริ่มต้น USD (USD Starting Cash) - ระบบจะคำนวณเงิน HKD (7.8 เท่า) ให้โดยอัตโนมัติ"
+                      type="number"
+                      value={formSimulatedInitialCash}
+                      onChange={(e) => {
+                        const val = parseFloat(e.target.value) || 0;
+                        setFormSimulatedInitialCash(val);
+                        setFormSimulatedInitialCashHkd(Math.round(val * 7.8));
+                      }}
+                      disabled={actionLoading}
+                    />
                   </Box>
                 )}
 
