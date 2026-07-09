@@ -25,7 +25,6 @@ import {
   Database,
   AlertCircle
 } from 'lucide-react';
-import Header from 'frontend/components/Header';
 import { useToast } from 'frontend/components/ToastProvider';
 
 const API_BASE = "http://127.0.0.1:8484/api";
@@ -86,8 +85,7 @@ export default function ETFShortPage() {
 
   return (
     <Box sx={{ minHeight: '100vh', bgcolor: '#0b0f17', pb: 10 }}>
-      {/* 1. Header Navigation */}
-      <Header connected={connected} tradeMode={tradeMode} />
+
 
       {apiError && (
         <Alert 
