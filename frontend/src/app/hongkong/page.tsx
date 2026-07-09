@@ -1532,6 +1532,7 @@ export default function HongkongHome() {
                       <TableRow>
                         <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หุ้นหลัก (Underlying)</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ราคาหุ้นหลัก</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>สัญญาณ (Signal)</TableCell>
                         <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inverse ETF</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ราคา ETF</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>จำนวนที่ถือครอง</TableCell>
@@ -1544,7 +1545,7 @@ export default function HongkongHome() {
                     <TableBody>
                       {etfData.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                             ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
                           </TableCell>
                         </TableRow>
@@ -1552,6 +1553,15 @@ export default function HongkongHome() {
                         etfData.map((row) => {
                           const hasPosition = row.owned_qty > 0;
                           const isProfit = row.unrealized_pnl >= 0;
+                          // Lookup underlying signal from signals state
+                          const underlyingSig = signals.find(s => s.symbol === row.underlying);
+                          const smaScore = underlyingSig ? (underlyingSig.sma_signal === 'SELL' ? 1 : underlyingSig.sma_signal === 'BUY' ? -1 : 0) : 0;
+                          const rsiScore = underlyingSig ? (underlyingSig.rsi_signal === 'SELL' ? 1 : underlyingSig.rsi_signal === 'BUY' ? -1 : 0) : 0;
+                          const hybScore = underlyingSig ? (underlyingSig.hybrid_signal === 'SELL' ? 1 : underlyingSig.hybrid_signal === 'BUY' ? -1 : 0) : 0;
+                          const etfScore = smaScore + rsiScore + hybScore; // +3 = strong ETF BUY, -3 = strong ETF SELL
+                          const etfConfLabel = etfScore === 3 ? '🔥 ซื้อ ETF ทันที' : etfScore === 2 ? '📈 แนวโน้ม ETF ขึ้น' : etfScore === 1 ? '↗ อ่อนๆ ETF' : etfScore === -3 ? '⚠️ ขาย ETF' : etfScore === -2 ? '📉 ETF อ่อนแอ' : etfScore === -1 ? '↘ ระวัง ETF' : '— รอดู';
+                          const etfConfColor = etfScore > 0 ? '#16c784' : etfScore < 0 ? '#ea3943' : '#94a3b8';
+                          const etfConfBg = etfScore > 0 ? 'rgba(22, 199, 132, 0.1)' : etfScore < 0 ? 'rgba(234, 57, 67, 0.1)' : 'rgba(148, 163, 184, 0.08)';
                           return (
                             <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
                               <TableCell sx={{ py: 1.5 }}>
@@ -1564,6 +1574,24 @@ export default function HongkongHome() {
                               </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                                 HK$ {row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              {/* Signal column — cross-references underlying's signal, inverted for ETF direction */}
+                              <TableCell align="center" sx={{ py: 1.5 }}>
+                                {underlyingSig ? (
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                                    <Box sx={{ px: 1.2, py: 0.4, borderRadius: '6px', bgcolor: etfConfBg, border: `1px solid ${etfConfColor}30`, display: 'inline-flex', alignItems: 'center' }}>
+                                      <Typography sx={{ fontWeight: 800, fontSize: '0.72rem', color: etfConfColor, letterSpacing: '0.01em' }}>
+                                        {etfConfLabel}
+                                      </Typography>
+                                    </Box>
+                                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', justifyContent: 'center' }}>
+                                      <Chip label={`SMA: ${underlyingSig.sma_signal}`} size="small" color={underlyingSig.sma_signal === 'SELL' ? 'error' : underlyingSig.sma_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600 }} />
+                                      <Chip label={`RSI: ${underlyingSig.rsi_signal}`} size="small" color={underlyingSig.rsi_signal === 'SELL' ? 'error' : underlyingSig.rsi_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 18, fontSize: '0.62rem', fontWeight: 600 }} />
+                                    </Box>
+                                  </Box>
+                                ) : (
+                                  <Typography variant="caption" sx={{ color: '#475569', fontStyle: 'italic' }}>ไม่มีข้อมูล</Typography>
+                                )}
                               </TableCell>
                               <TableCell sx={{ py: 1.5 }}>
                                 <Typography sx={{ fontWeight: 800, color: 'secondary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
