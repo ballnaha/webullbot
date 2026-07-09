@@ -208,3 +208,327 @@
   "http_status": 401,
   "request_id": "b1b2cb6d-3f5a-47f9-b648-ff4f44edbfc7"
 }
+28388 2026-07-09 14:18:35,033 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:18:34Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "0f4187af-0ac5-5e0a-ab54-559e8ed250c6",
+    "x-signature": "K05K6jp5qlKtdH4hlpJck9J6dfY=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: fd981951-affd-4937-9752-bb289236d502
+28388 2026-07-09 14:18:35,033 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:18:34Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "0f4187af-0ac5-5e0a-ab54-559e8ed250c6",
+    "x-signature": "K05K6jp5qlKtdH4hlpJck9J6dfY=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: fd981951-affd-4937-9752-bb289236d502
+28388 2026-07-09 14:18:35,033 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "fd981951-affd-4937-9752-bb289236d502"
+}
+28388 2026-07-09 14:18:35,033 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "fd981951-affd-4937-9752-bb289236d502"
+}
+10896 2026-07-09 14:19:16,109 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:19:15Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "3a4554be-e2e7-587f-b9d8-69c87ef8af98",
+    "x-signature": "vdhTPW2lkSkgeokL8WRwjyet+gM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_code': 'UNAUTHORIZED', 'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 79b4cdea-b212-4650-8f10-9a6bdc32f361
+10896 2026-07-09 14:19:16,109 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:19:15Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "3a4554be-e2e7-587f-b9d8-69c87ef8af98",
+    "x-signature": "vdhTPW2lkSkgeokL8WRwjyet+gM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_code': 'UNAUTHORIZED', 'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 79b4cdea-b212-4650-8f10-9a6bdc32f361
+10896 2026-07-09 14:19:16,109 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:19:15Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "3a4554be-e2e7-587f-b9d8-69c87ef8af98",
+    "x-signature": "vdhTPW2lkSkgeokL8WRwjyet+gM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_code': 'UNAUTHORIZED', 'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 79b4cdea-b212-4650-8f10-9a6bdc32f361
+10896 2026-07-09 14:19:16,111 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "79b4cdea-b212-4650-8f10-9a6bdc32f361"
+}
+10896 2026-07-09 14:19:16,111 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "79b4cdea-b212-4650-8f10-9a6bdc32f361"
+}
+10896 2026-07-09 14:19:16,111 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "79b4cdea-b212-4650-8f10-9a6bdc32f361"
+}
+10896 2026-07-09 14:20:04,660 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:20:04Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "eb8a3fdc-2135-503a-9d77-dce55a9f68d0",
+    "x-signature": "sIyrJPTz7qfBVDkvLJd5PR2X/LM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 44aff9ff-3419-4da4-8333-3eb5abc4d373
+10896 2026-07-09 14:20:04,660 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:20:04Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "eb8a3fdc-2135-503a-9d77-dce55a9f68d0",
+    "x-signature": "sIyrJPTz7qfBVDkvLJd5PR2X/LM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 44aff9ff-3419-4da4-8333-3eb5abc4d373
+10896 2026-07-09 14:20:04,660 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:20:04Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "eb8a3fdc-2135-503a-9d77-dce55a9f68d0",
+    "x-signature": "sIyrJPTz7qfBVDkvLJd5PR2X/LM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 44aff9ff-3419-4da4-8333-3eb5abc4d373
+10896 2026-07-09 14:20:04,660 webull.core.client ERROR ServerException occurred. Host:api.webull.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/openapi/config",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {},
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "3994bda6099c34f1d43843833beb08a8",
+    "x-timestamp": "2026-07-09T07:20:04Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA1",
+    "x-signature-nonce": "eb8a3fdc-2135-503a-9d77-dce55a9f68d0",
+    "x-signature": "sIyrJPTz7qfBVDkvLJd5PR2X/LM=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "api.webull.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'message': 'Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment', 'error_code': 'UNAUTHORIZED'} ServerException:HTTP Status: 401, Code: UNAUTHORIZED, Msg: Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment, RequestID: 44aff9ff-3419-4da4-8333-3eb5abc4d373
+10896 2026-07-09 14:20:04,670 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "44aff9ff-3419-4da4-8333-3eb5abc4d373"
+}
+10896 2026-07-09 14:20:04,670 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "44aff9ff-3419-4da4-8333-3eb5abc4d373"
+}
+10896 2026-07-09 14:20:04,670 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "44aff9ff-3419-4da4-8333-3eb5abc4d373"
+}
+10896 2026-07-09 14:20:04,670 webull.core.client ERROR get_response exception. {
+  "error_code": "UNAUTHORIZED",
+  "error_msg": "Invalid credentials. Please verify your credentials and ensure you are connecting to the correct environment",
+  "http_status": 401,
+  "request_id": "44aff9ff-3419-4da4-8333-3eb5abc4d373"
+}
