@@ -1344,13 +1344,13 @@ export default function HongkongHome() {
 
               <TableContainer>
                 <Table size="small">
-                  <TableHead>
+                  <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                     <TableRow>
-                      <TableCell sx={{ width: '28%' }}>หุ้น / บริษัท (Ticker & Company)</TableCell>
-                      <TableCell align="right" sx={{ width: '12%' }}>ราคาล่าสุด</TableCell>
-                      <TableCell align="left" sx={{ pl: 4, width: '25%' }}>ตัวชี้วัดทางเทคนิค (Technical Indicators)</TableCell>
-                      <TableCell align="center" sx={{ width: '20%' }}>ความสอดคล้องสัญญาณ (Confluence)</TableCell>
-                      <TableCell align="center" sx={{ width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '28%' }}>หุ้น / บริษัท (Ticker & Company)</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '12%' }}>ราคาล่าสุด</TableCell>
+                      <TableCell align="left" sx={{ pl: 4, fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '25%' }}>ตัวชี้วัดทางเทคนิค (Technical Indicators)</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '20%' }}>ความสอดคล้องสัญญาณ (Confluence)</TableCell>
+                      <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
@@ -1414,7 +1414,7 @@ export default function HongkongHome() {
                                 </Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, py: 1.5 }}>
-                                ${sig.price > 0 ? sig.price.toFixed(2) : "N/A"}
+                                {sig.price > 0 ? `HK$ ${sig.price.toFixed(2)}` : "N/A"}
                               </TableCell>
                               <TableCell align="left" sx={{ py: 1.5, pl: 4 }}>
                                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
@@ -1428,7 +1428,7 @@ export default function HongkongHome() {
                                     </span>
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                                    SMA(10/30): {sig.sma_fast > 0 ? `$${sig.sma_fast.toFixed(2)} / $${sig.sma_slow.toFixed(2)}` : "N/A"}
+                                    SMA(10/30): {sig.sma_fast > 0 ? `HK$ ${sig.sma_fast.toFixed(2)} / HK$ ${sig.sma_slow.toFixed(2)}` : "N/A"}
                                   </Typography>
                                 </Box>
                               </TableCell>
@@ -1530,15 +1530,15 @@ export default function HongkongHome() {
                   <Table size="small">
                     <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                       <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>หุ้นหลัก (Underlying)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคาหุ้นหลัก</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Inverse ETF</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคา ETF</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>จำนวนที่ถือครอง</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ทุนเฉลี่ย</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>มูลค่ารวม</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>กำไร / ขาดทุนสะสม</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 700 }}>ซื้อขายด่วน (Quick Trade)</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หุ้นหลัก (Underlying)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ราคาหุ้นหลัก</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Inverse ETF</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ราคา ETF</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>จำนวนที่ถือครอง</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ทุนเฉลี่ย</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>มูลค่ารวม</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>กำไร / ขาดทุนสะสม</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1554,11 +1554,25 @@ export default function HongkongHome() {
                           const isProfit = row.unrealized_pnl >= 0;
                           return (
                             <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ fontWeight: 700, color: '#f1f5f9' }}>{row.underlying}</TableCell>
+                              <TableCell sx={{ py: 1.5 }}>
+                                <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                  {row.underlying}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.2 }}>
+                                  {STOCK_NAMES[row.underlying] || "Hong Kong Stock"}
+                                </Typography>
+                              </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
                                 HK$ {row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </TableCell>
-                              <TableCell sx={{ fontWeight: 700, color: 'secondary.main' }}>{row.etf}</TableCell>
+                              <TableCell sx={{ py: 1.5 }}>
+                                <Typography sx={{ fontWeight: 800, color: 'secondary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                  {row.etf}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.2 }}>
+                                  {STOCK_NAMES[row.etf] || "Inverse Hedge ETF"}
+                                </Typography>
+                              </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', color: 'secondary.main', fontWeight: 600 }}>
                                 HK$ {row.etf_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                               </TableCell>
@@ -1631,15 +1645,15 @@ export default function HongkongHome() {
               {/* Tab 3: Active Positions */}
               {workspaceTab === 2 && (
                 <TableContainer>
-                  <Table>
-                    <TableHead>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                       <TableRow>
-                        <TableCell>หุ้น (Ticker)</TableCell>
-                        <TableCell align="right">จำนวนหุ้น (Shares)</TableCell>
-                        <TableCell align="right">ทุนเฉลี่ย (Avg Price)</TableCell>
-                        <TableCell align="right">มูลค่าตลาด (Market Value)</TableCell>
-                        <TableCell align="right">กำไร / ขาดทุน (P&L)</TableCell>
-                        <TableCell align="center">แอ็กชัน (Action)</TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หุ้น (Ticker)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>จำนวนหุ้น (Shares)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ทุนเฉลี่ย (Avg Price)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>มูลค่าตลาด (Market Value)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>กำไร / ขาดทุน (P&L)</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>แอ็กชัน (Action)</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1657,16 +1671,16 @@ export default function HongkongHome() {
                           return (
                             <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
                               <TableCell sx={{ py: 1.5 }}>
-                                <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                <Typography sx={{ fontWeight: 800, color: ["7500.HK", "7552.HK"].includes(pos.symbol) ? 'secondary.main' : 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
                                   {pos.symbol}
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                   {STOCK_NAMES[pos.symbol] || (pos.symbol.endsWith('.HK') ? "Hong Kong Listed Company" : "US Listed Company")}
+                                   {STOCK_NAMES[pos.symbol] || (["7500.HK", "7552.HK"].includes(pos.symbol) ? "Inverse Hedge ETF" : "Hong Kong Listed Company")}
                                 </Typography>
                               </TableCell>
                               <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
                               <TableCell align="right">
                                 <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
                                   <Typography 
@@ -1679,11 +1693,10 @@ export default function HongkongHome() {
                                     {posProfit ? "+" : ""}HK$ {pos.unrealized_pnl.toFixed(2)}
                                   </Typography>
                                   <Chip 
-                                    label={pos.avg_price > 0 ? `${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0%"}
+                                    label={pos.avg_price > 0 ? `${posProfit ? "+" : ""}${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0.00%"}
                                     size="small"
                                     color={posProfit ? "success" : "error"}
-                                    variant="outlined"
-                                    sx={{ height: 16, fontSize: '0.65rem', fontWeight: 600, px: 0.2 }}
+                                    sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.7rem' }}
                                   />
                                 </Box>
                               </TableCell>
