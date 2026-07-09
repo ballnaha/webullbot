@@ -18,7 +18,9 @@ import {
   Alert,
   AlertTitle,
   Switch,
-  FormControlLabel
+  FormControlLabel,
+  Tabs,
+  Tab
 } from '@mui/material';
 import { 
   TrendingDown, 
@@ -56,6 +58,7 @@ export default function ETFShortPage() {
   const [status, setStatus] = useState<any>({ strategy_us: "sma", strategy_hk: "sma" });
   const [isLoading, setIsLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
+  const [tabIndex, setTabIndex] = useState(0);
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -298,11 +301,23 @@ export default function ETFShortPage() {
       {/* 3. ETF Pricing and Holdings Table */}
       <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px' }}>
         <CardContent sx={{ p: 4 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Database size={18} color="#3b82f6" /> รายการจับคู่และสถานะการลงทุนใน Inverse ETF ({etfData.length} ตัว)
+              <Database size={18} color="#3b82f6" /> รายการจับคู่และสถานะการลงทุนใน Inverse ETF
             </Typography>
             {isLoading && <CircularProgress size={20} color="primary" />}
+          </Box>
+
+          <Box sx={{ borderBottom: 1, borderColor: 'rgba(255,255,255,0.08)', mb: 3 }}>
+            <Tabs 
+              value={tabIndex} 
+              onChange={(e, newIdx) => setTabIndex(newIdx)} 
+              textColor="primary" 
+              indicatorColor="primary"
+            >
+              <Tab label="🇺🇸 ETF สหรัฐฯ (Traded in USD)" sx={{ fontWeight: 700, textTransform: 'none' }} />
+              <Tab label="🇭🇰 ETF ฮ่องกง (Traded in HKD)" sx={{ fontWeight: 700, textTransform: 'none' }} />
+            </Tabs>
           </Box>
 
           <TableContainer component={Paper} sx={{ bgcolor: 'transparent', boxShadow: 'none', backgroundImage: 'none' }}>
@@ -320,53 +335,58 @@ export default function ETFShortPage() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {etfData.map((row) => {
-                  const hasPosition = row.owned_qty > 0;
-                  const isProfit = row.unrealized_pnl >= 0;
-                  const isHk = row.underlying.endsWith(".HK");
-                  const currency = isHk ? "HKD" : "USD";
-                  const currencySign = isHk ? "HK$" : "$";
-                  
-                  return (
-                    <TableRow key={row.underlying} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' } }}>
-                      <TableCell sx={{ fontWeight: 700, color: '#f1f5f9' }}>
-                        {row.underlying}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                        {currencySign}{row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700, color: '#60a5fa' }}>
-                        {row.etf}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#60a5fa' }}>
-                        {currencySign}{row.etf_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                        {hasPosition ? (
-                          <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px' }} />
-                        ) : (
-                          <Typography variant="body2" color="text.secondary">-</Typography>
-                        )}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
-                        {hasPosition ? `${currencySign}${row.avg_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                        {hasPosition ? `${currencySign}${row.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
-                      </TableCell>
-                      <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: isProfit ? '#10b981' : '#ef4444' }}>
-                        {hasPosition ? (
-                          <>
-                            {isProfit ? "+" : ""}
-                            {row.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
-                          </>
-                        ) : (
-                          "-"
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })}
+                {etfData
+                  .filter((row) => {
+                    const isHk = row.underlying.endsWith(".HK");
+                    return tabIndex === 0 ? !isHk : isHk;
+                  })
+                  .map((row) => {
+                    const hasPosition = row.owned_qty > 0;
+                    const isProfit = row.unrealized_pnl >= 0;
+                    const isHk = row.underlying.endsWith(".HK");
+                    const currency = isHk ? "HKD" : "USD";
+                    const currencySign = isHk ? "HK$" : "$";
+                    
+                    return (
+                      <TableRow key={row.underlying} sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.01)' } }}>
+                        <TableCell sx={{ fontWeight: 700, color: '#f1f5f9' }}>
+                          {row.underlying}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                          {currencySign}{row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, color: '#60a5fa' }}>
+                          {row.etf}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, color: '#60a5fa' }}>
+                          {currencySign}{row.etf_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                          {hasPosition ? (
+                            <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px' }} />
+                          ) : (
+                            <Typography variant="body2" color="text.secondary">-</Typography>
+                          )}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
+                          {hasPosition ? `${currencySign}${row.avg_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                          {hasPosition ? `${currencySign}${row.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                        </TableCell>
+                        <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: isProfit ? '#10b981' : '#ef4444' }}>
+                          {hasPosition ? (
+                            <>
+                              {isProfit ? "+" : ""}
+                              {row.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} {currency}
+                            </>
+                          ) : (
+                            "-"
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
               </TableBody>
             </Table>
           </TableContainer>
