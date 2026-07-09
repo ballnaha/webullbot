@@ -15,7 +15,6 @@ export default function Header({ connected, tradeMode }: HeaderProps) {
   const pathname = usePathname();
   const isStockUs = pathname === '/stockus' || pathname === '/';
   const isHongKong = pathname === '/hongkong';
-  const isEtfShort = pathname === '/etfshort';
   const isSettings = pathname === '/settings';
   const isLogs = pathname === '/logs';
 
@@ -128,37 +127,7 @@ export default function Header({ connected, tradeMode }: HeaderProps) {
             🇭🇰 ตลาดฮ่องกง
           </Button>
         </Link>
-        <Link href="/etfshort" passHref style={{ textDecoration: 'none' }}>
-          <Button
-            size="small"
-            sx={{ 
-              fontSize: '0.8rem', 
-              fontWeight: 700, 
-              width: 125,
-              height: 36,
-              borderRadius: '8px',
-              transition: 'all 0.25s',
-              textTransform: 'none',
-              ...(isEtfShort ? {
-                bgcolor: 'rgba(59, 130, 246, 0.15)',
-                color: '#60a5fa',
-                border: '1px solid rgba(59, 130, 246, 0.3)',
-                '&:hover': {
-                  bgcolor: 'rgba(59, 130, 246, 0.2)'
-                }
-              } : {
-                color: '#94a3b8',
-                border: '1px solid transparent',
-                '&:hover': {
-                  color: '#fff',
-                  bgcolor: 'rgba(255,255,255,0.03)'
-                }
-              })
-            }}
-          >
-            📉 ETF Short
-          </Button>
-        </Link>
+
         <Link href="/settings" passHref style={{ textDecoration: 'none' }}>
           <Button
             size="small"

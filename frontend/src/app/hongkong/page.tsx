@@ -496,6 +496,7 @@ export default function HongkongHome() {
   const [formTradePin, setFormTradePin] = useState("");
   const [formAppKey, setFormAppKey] = useState("");
   const [formAppSecret, setFormAppSecret] = useState("");
+  const [etfData, setEtfData] = useState<any[]>([]);
 
   const loadData = useCallback(async (forceLoading = false) => {
     if (forceLoading) {
@@ -527,6 +528,12 @@ export default function HongkongHome() {
       if (resSignals.ok) {
         const dataSignals = await resSignals.json();
         setSignals(dataSignals);
+      }
+
+      const resEtf = await fetch(`${API_BASE}/etf-short-status`);
+      if (resEtf.ok) {
+        const dataEtf = await resEtf.json();
+        setEtfData(dataEtf.filter((row: any) => row.underlying.endsWith(".HK")));
       }
     } catch (err: any) {
       setConnected(false);
@@ -1493,6 +1500,89 @@ export default function HongkongHome() {
                     }
                   }}
                 />
+              </CardContent>
+            </Card>
+
+            {/* Inverse ETF Shorting Mappings & Positions */}
+            <Card>
+              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+                <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(244, 63, 94, 0.06)', display: 'flex' }}>
+                      <TrendingDown size={18} color="#f43f5e" />
+                    </Box>
+                    <Box>
+                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                        สแกนเนอร์และพอร์ต Inverse ETF (Short ETFs)
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        รายการจับคู่หุ้นปกติ (Underlying) และกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                
+                <TableContainer>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700 }}>หุ้นหลัก (Underlying)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคาหุ้นหลัก</TableCell>
+                        <TableCell sx={{ fontWeight: 700 }}>Inverse ETF</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคา ETF</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>จำนวนที่ถือครอง</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>ทุนเฉลี่ย</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>มูลค่ารวม</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700 }}>กำไร / ขาดทุนสะสม</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {etfData.length === 0 ? (
+                        <TableRow>
+                          <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                            ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
+                          </TableCell>
+                        </TableRow>
+                      ) : (
+                        etfData.map((row) => {
+                          const hasPosition = row.owned_qty > 0;
+                          const isProfit = row.unrealized_pnl >= 0;
+                          return (
+                            <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                              <TableCell sx={{ fontWeight: 700, color: '#f1f5f9' }}>{row.underlying}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
+                                HK$ {row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell sx={{ fontWeight: 700, color: 'secondary.main' }}>{row.etf}</TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', color: 'secondary.main', fontWeight: 600 }}>
+                                HK$ {row.etf_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
+                                {hasPosition ? (
+                                  <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px' }} />
+                                ) : "-"}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
+                                {hasPosition ? `HK$ ${row.avg_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
+                                {hasPosition ? `HK$ ${row.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
+                              </TableCell>
+                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: isProfit ? 'success.main' : 'error.main' }}>
+                                {hasPosition ? (
+                                  <>
+                                    {isProfit ? "+" : ""}
+                                    HK$ {row.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                  </>
+                                ) : "-"}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })
+                      )}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
               </CardContent>
             </Card>
 
