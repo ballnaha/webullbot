@@ -16,7 +16,9 @@ import {
   CircularProgress,
   Chip,
   Alert,
-  AlertTitle
+  AlertTitle,
+  Switch,
+  FormControlLabel
 } from '@mui/material';
 import { 
   TrendingDown, 
@@ -53,6 +55,7 @@ export default function ETFShortPage() {
   const [balance, setBalance] = useState({ cash: 0, cash_hkd: 0, net_liquidation: 0, net_liquidation_hkd: 0, currency: "USD", currency_hkd: "HKD" });
   const [status, setStatus] = useState<any>({ strategy_us: "sma", strategy_hk: "sma" });
   const [isLoading, setIsLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
   const { showToast } = useToast();
 
   const loadData = useCallback(async () => {
@@ -83,6 +86,28 @@ export default function ETFShortPage() {
       setIsLoading(false);
     }
   }, []);
+
+  const handleToggleBot = async (market: "us" | "hk") => {
+    setActionLoading(true);
+    const isRunning = market === "us" 
+      ? (status.running_us !== undefined ? status.running_us : status.running)
+      : (status.running_hk !== undefined ? status.running_hk : status.running);
+    const endpoint = isRunning ? "stop" : "start";
+    try {
+      const res = await fetch(`${API_BASE}/${endpoint}?market=${market}`, { method: "POST" });
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`Error: ${data.detail || "Request failed"}`, "error");
+      } else {
+        showToast(`บอทหุ้น${market === "us" ? "สหรัฐฯ" : "ฮ่องกง"} ${isRunning ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
+        await loadData();
+      }
+    } catch (err) {
+      showToast("Failed to toggle bot loop. Check backend console.", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
 
   useEffect(() => {
     setMounted(true);
@@ -188,23 +213,67 @@ export default function ETFShortPage() {
           </CardContent>
         </Card>
 
-        {/* Card 4: Strategy Status */}
+        {/* Card 4: Bot Control Panel */}
         <Card sx={{ border: '1px solid rgba(255,255,255,0.05)', background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.6) 0%, rgba(30, 41, 59, 0.6) 100%)' }}>
           <CardContent sx={{ p: 3 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
               <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                กลยุทธ์ที่กำลังทำงาน
+                สถานะการควบคุมบอท
               </Typography>
               <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
                 <Cpu size={18} color="#3b82f6" />
               </Box>
             </Box>
-            <Typography variant="h5" sx={{ fontWeight: 800, mb: 0.5, textTransform: 'uppercase', color: '#f8fafc' }}>
-              US: {status.strategy_us || "SMA"}
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, textTransform: 'uppercase', color: '#60a5fa' }}>
-              HK: {status.strategy_hk || "SMA"}
-            </Typography>
+
+            {/* US Bot Row */}
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1 }}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: (status.running_us !== undefined ? status.running_us : status.running) ? "success.main" : "text.secondary" }}>
+                  US Bot: {(status.running_us !== undefined ? status.running_us : status.running) ? "RUNNING" : "STANDBY"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                  กลยุทธ์: {(status.strategy_us || "SMA").toUpperCase()}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                control={
+                  <Switch 
+                    checked={status.running_us !== undefined ? status.running_us : status.running} 
+                    onChange={() => handleToggleBot("us")}
+                    color="success"
+                    disabled={actionLoading || !connected}
+                    size="small"
+                  />
+                }
+                label=""
+                sx={{ mr: 0 }}
+              />
+            </Box>
+
+            {/* HK Bot Row */}
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <Box>
+                <Typography variant="body2" sx={{ fontWeight: 700, color: (status.running_hk !== undefined ? status.running_hk : status.running) ? "success.main" : "text.secondary" }}>
+                  HK Bot: {(status.running_hk !== undefined ? status.running_hk : status.running) ? "RUNNING" : "STANDBY"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
+                  กลยุทธ์: {(status.strategy_hk || "SMA").toUpperCase()}
+                </Typography>
+              </Box>
+              <FormControlLabel
+                control={
+                  <Switch 
+                    checked={status.running_hk !== undefined ? status.running_hk : status.running} 
+                    onChange={() => handleToggleBot("hk")}
+                    color="success"
+                    disabled={actionLoading || !connected}
+                    size="small"
+                  />
+                }
+                label=""
+                sx={{ mr: 0 }}
+              />
+            </Box>
           </CardContent>
         </Card>
       </Box>
