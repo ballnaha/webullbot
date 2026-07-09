@@ -38,6 +38,7 @@ def get_client():
         return WebullOfficialClient(
             app_key=Config.WEBULL_APP_KEY,
             app_secret=Config.WEBULL_APP_SECRET,
+            region=Config.WEBULL_API_REGION if Config.WEBULL_API_REGION else "us",
             endpoint=Config.WEBULL_API_ENDPOINT if Config.WEBULL_API_ENDPOINT else None
         )
         

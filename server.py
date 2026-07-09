@@ -219,6 +219,7 @@ class ConfigModel(BaseModel):
     app_key: Optional[str] = ""
     app_secret: Optional[str] = ""
     webull_api_endpoint: Optional[str] = ""
+    webull_api_region: Optional[str] = "us"
 
 class OrderModel(BaseModel):
     symbol: str
@@ -441,7 +442,9 @@ def update_config(data: ConfigModel):
                 f.write(f"WEBULL_APP_KEY={app_key}\n")
                 f.write(f"WEBULL_APP_SECRET={app_secret}\n")
                 api_endpoint = data.webull_api_endpoint if data.webull_api_endpoint else Config.WEBULL_API_ENDPOINT
-                f.write(f"WEBULL_API_ENDPOINT={api_endpoint}\n\n")
+                api_region = data.webull_api_region if data.webull_api_region else Config.WEBULL_API_REGION
+                f.write(f"WEBULL_API_ENDPOINT={api_endpoint}\n")
+                f.write(f"WEBULL_API_REGION={api_region.lower()}\n\n")
                 
                 symbols_str = ",".join(data.symbols).upper()
                 f.write(f"DEFAULT_SYMBOLS={symbols_str}\n")
