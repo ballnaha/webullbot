@@ -1153,12 +1153,13 @@ export default function StockUsHome() {
                         <TableCell align="right" sx={{ fontWeight: 700 }}>ทุนเฉลี่ย</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>มูลค่ารวม</TableCell>
                         <TableCell align="right" sx={{ fontWeight: 700 }}>กำไร / ขาดทุนสะสม</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700 }}>ซื้อขายด่วน (Quick Trade)</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {etfData.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                             ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
                           </TableCell>
                         </TableRow>
@@ -1193,6 +1194,44 @@ export default function StockUsHome() {
                                     {isProfit ? "+" : ""}${row.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                   </>
                                 ) : "-"}
+                              </TableCell>
+                              <TableCell align="center">
+                                <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
+                                  <Button
+                                    variant="contained"
+                                    color="success"
+                                    size="small"
+                                    onClick={() => handleQuickTrade(row.etf, "BUY", row.etf.endsWith('.HK') ? status.quantity_hk : status.quantity)}
+                                    disabled={actionLoading || !status.has_client || !connected}
+                                    sx={{ 
+                                      minWidth: 50, 
+                                      height: 28, 
+                                      fontSize: '0.72rem', 
+                                      borderRadius: '6px',
+                                      boxShadow: 'none',
+                                      '&:hover': { bgcolor: '#10b981' }
+                                    }}
+                                  >
+                                    BUY
+                                  </Button>
+                                  <Button
+                                    variant="contained"
+                                    color="error"
+                                    size="small"
+                                    onClick={() => handleQuickTrade(row.etf, "SELL", row.etf.endsWith('.HK') ? status.quantity_hk : status.quantity)}
+                                    disabled={actionLoading || !status.has_client || !connected}
+                                    sx={{ 
+                                      minWidth: 50, 
+                                      height: 28, 
+                                      fontSize: '0.72rem', 
+                                      borderRadius: '6px',
+                                      boxShadow: 'none',
+                                      '&:hover': { bgcolor: '#ea3943' }
+                                    }}
+                                  >
+                                    SELL
+                                  </Button>
+                                </Box>
                               </TableCell>
                             </TableRow>
                           );
