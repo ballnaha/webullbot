@@ -13,6 +13,7 @@ class Config:
     WEBULL_DEVICE_NAME = "PythonBot"
     WEBULL_APP_KEY = ""
     WEBULL_APP_SECRET = ""
+    WEBULL_API_ENDPOINT = ""
     DEFAULT_SYMBOLS = []
     TRADE_QUANTITY = 1
     TRADE_QUANTITY_HK = 100
@@ -58,6 +59,7 @@ class Config:
         cls.WEBULL_DEVICE_NAME = os.getenv("WEBULL_DEVICE_NAME", "PythonBot")
         cls.WEBULL_APP_KEY = os.getenv("WEBULL_APP_KEY", "")
         cls.WEBULL_APP_SECRET = os.getenv("WEBULL_APP_SECRET", "")
+        cls.WEBULL_API_ENDPOINT = os.getenv("WEBULL_API_ENDPOINT", "")
         cls.DEFAULT_SYMBOLS = [
             symbol.strip().upper() 
             for symbol in os.getenv("DEFAULT_SYMBOLS", "").split(",") 

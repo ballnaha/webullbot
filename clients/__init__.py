@@ -37,7 +37,8 @@ def get_client():
     elif mode == "WEBULL_OFFICIAL":
         return WebullOfficialClient(
             app_key=Config.WEBULL_APP_KEY,
-            app_secret=Config.WEBULL_APP_SECRET
+            app_secret=Config.WEBULL_APP_SECRET,
+            endpoint=Config.WEBULL_API_ENDPOINT if Config.WEBULL_API_ENDPOINT else None
         )
         
     else:
