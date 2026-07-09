@@ -48,6 +48,8 @@ interface BotStatus {
   hk_max_qty_per_slot?: number;
   hk_filter_price_limit?: number;
   hk_filter_price_operator?: string;
+  strategy_us?: string;
+  strategy_hk?: string;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -158,7 +160,8 @@ export default function SettingsPage() {
   const [formQty, setFormQty] = useState(1);
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
-  const [formStrategy, setFormStrategy] = useState("sma");
+  const [formStrategyUs, setFormStrategyUs] = useState("sma");
+  const [formStrategyHk, setFormStrategyHk] = useState("sma");
   const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
   const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
   const [isConfigInitialized, setIsConfigInitialized] = useState(false);
@@ -201,7 +204,8 @@ export default function SettingsPage() {
       setFormQty(status.quantity);
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
-      setFormStrategy(status.strategy);
+      setFormStrategyUs(status.strategy_us !== undefined ? status.strategy_us : "sma");
+      setFormStrategyHk(status.strategy_hk !== undefined ? status.strategy_hk : "sma");
       setFormHkFilterPriceLimit(status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0);
       setFormHkFilterPriceOperator(status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le");
       setIsConfigInitialized(true);
@@ -240,7 +244,8 @@ export default function SettingsPage() {
           quantity: formQty,
           interval: formInterval,
           candle_period: formPeriod,
-          strategy: formStrategy,
+          strategy_us: formStrategyUs,
+          strategy_hk: formStrategyHk,
           hk_filter_price_limit: formHkFilterPriceLimit,
           hk_filter_price_operator: formHkFilterPriceOperator,
           username: formUsername,
@@ -277,7 +282,8 @@ export default function SettingsPage() {
             setFormQty(freshStatus.quantity);
             setFormInterval(freshStatus.interval);
             setFormPeriod(freshStatus.candle_period);
-            setFormStrategy(freshStatus.strategy);
+            setFormStrategyUs(freshStatus.strategy_us !== undefined ? freshStatus.strategy_us : "sma");
+            setFormStrategyHk(freshStatus.strategy_hk !== undefined ? freshStatus.strategy_hk : "sma");
             setFormHkFilterPriceLimit(freshStatus.hk_filter_price_limit !== undefined ? freshStatus.hk_filter_price_limit : 20.0);
             setFormHkFilterPriceOperator(freshStatus.hk_filter_price_operator !== undefined ? freshStatus.hk_filter_price_operator : "le");
           }
@@ -393,21 +399,38 @@ export default function SettingsPage() {
                   </Box>
                 ) : null}
 
-                {/* 3. Strategy */}
-                <FormControl fullWidth size="small">
-                  <InputLabel>กลยุทธ์ส่งสัญญาณ (Strategy)</InputLabel>
-                  <Select
-                    value={formStrategy}
-                    label="กลยุทธ์ส่งสัญญาณ (Strategy)"
-                    onChange={(e) => setFormStrategy(e.target.value)}
-                    disabled={actionLoading}
-                    sx={{ borderRadius: '12px' }}
-                  >
-                    <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
-                    <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
-                    <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
-                  </Select>
-                </FormControl>
+                {/* 3. Strategies (US and HK separated) */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
+                  <FormControl fullWidth size="small">
+                    <InputLabel>กลยุทธ์ส่งสัญญาณ สหรัฐฯ (US Strategy)</InputLabel>
+                    <Select
+                      value={formStrategyUs}
+                      label="กลยุทธ์ส่งสัญญาณ สหรัฐฯ (US Strategy)"
+                      onChange={(e) => setFormStrategyUs(e.target.value)}
+                      disabled={actionLoading}
+                      sx={{ borderRadius: '12px' }}
+                    >
+                      <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
+                      <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
+                      <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>กลยุทธ์ส่งสัญญาณ ฮ่องกง (HK Strategy)</InputLabel>
+                    <Select
+                      value={formStrategyHk}
+                      label="กลยุทธ์ส่งสัญญาณ ฮ่องกง (HK Strategy)"
+                      onChange={(e) => setFormStrategyHk(e.target.value)}
+                      disabled={actionLoading}
+                      sx={{ borderRadius: '12px' }}
+                    >
+                      <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
+                      <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
+                      <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
 
                 {/* 4. Watchlists US and HK */}
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>

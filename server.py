@@ -25,12 +25,18 @@ app.add_middleware(
 
 # Global bot state storage
 bot_state = {
-    "running": False,
-    "bot": None,
+    "running_us": False,
+    "running_hk": False,
+    "bot_us": None,
+    "bot_hk": None,
     "client": None,
-    "strategy_name": "sma",
+    "strategy_us": "sma",
+    "strategy_hk": "sma",
     "latest_data": {
-        "balance": {"cash": 0.0, "net_liquidation": 0.0, "unrealized_pnl": 0.0, "currency": "USD"},
+        "balance": {
+            "cash": 0.0, "net_liquidation": 0.0, "unrealized_pnl": 0.0, "currency": "USD",
+            "cash_hkd": 0.0, "net_liquidation_hkd": 0.0, "unrealized_pnl_hkd": 0.0, "currency_hkd": "HKD"
+        },
         "positions": [],
         "logs": ["Server started. Bot is idle."],
         "trades": []
@@ -70,18 +76,36 @@ def init_bot_components():
             
         bot_state["client"] = client
         
-        # Load strategy
-        add_system_log(f"Loading strategy: {bot_state['strategy_name']}...")
-        if bot_state["strategy_name"] == "sma":
-            strategy = get_strategy("sma", fast_period=10, slow_period=30)
-        elif bot_state["strategy_name"] == "hybrid":
-            strategy = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
+        # Load strategies
+        bot_state["strategy_us"] = Config.STRATEGY_US
+        bot_state["strategy_hk"] = Config.STRATEGY_HK
+        
+        # Load US strategy
+        add_system_log(f"Loading US strategy: {Config.STRATEGY_US}...")
+        if Config.STRATEGY_US == "sma":
+            strategy_us = get_strategy("sma", fast_period=10, slow_period=30)
+        elif Config.STRATEGY_US == "hybrid":
+            strategy_us = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
         else:
-            strategy = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
+            strategy_us = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
             
-        # Create bot orchestrator
-        bot_state["bot"] = TradingBot(client=client, strategy=strategy, symbols=Config.DEFAULT_SYMBOLS)
-        add_system_log("Bot components successfully initialized!")
+        # Load HK strategy
+        add_system_log(f"Loading HK strategy: {Config.STRATEGY_HK}...")
+        if Config.STRATEGY_HK == "sma":
+            strategy_hk = get_strategy("sma", fast_period=10, slow_period=30)
+        elif Config.STRATEGY_HK == "hybrid":
+            strategy_hk = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
+        else:
+            strategy_hk = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
+            
+        # Split symbols
+        us_symbols = [s for s in Config.DEFAULT_SYMBOLS if not s.endswith(".HK")]
+        hk_symbols = [s for s in Config.DEFAULT_SYMBOLS if s.endswith(".HK")]
+            
+        # Create bot orchestrators
+        bot_state["bot_us"] = TradingBot(client=client, strategy=strategy_us, symbols=us_symbols)
+        bot_state["bot_hk"] = TradingBot(client=client, strategy=strategy_hk, symbols=hk_symbols)
+        add_system_log("Bot components successfully initialized for both US and HK markets!")
         
         # Initial data fetch
         balance = client.get_account_balance()
@@ -99,14 +123,12 @@ def init_bot_components():
 async def trading_loop():
     add_system_log("Background trading loop task started.")
     while True:
-        if bot_state["running"]:
-            if bot_state["bot"]:
+        # 1. Run US Bot if enabled
+        if bot_state["running_us"]:
+            if bot_state["bot_us"]:
                 try:
-                    add_system_log("Executing background bot trade scan...")
-                    # run_once returns updated state
-                    res = bot_state["bot"].run_once()
-                    
-                    # Update local state cache
+                    add_system_log("Executing background US bot trade scan...")
+                    res = bot_state["bot_us"].run_once()
                     bot_state["latest_data"]["balance"] = res["balance"]
                     bot_state["latest_data"]["positions"] = res["positions"]
                     
@@ -114,21 +136,56 @@ async def trading_loop():
                     for log in res["logs"]:
                         if log not in bot_state["latest_data"]["logs"]:
                             bot_state["latest_data"]["logs"].append(log)
-                            
+                    
                     # Keep logs capped
                     if len(bot_state["latest_data"]["logs"]) > 100:
                         bot_state["latest_data"]["logs"] = bot_state["latest_data"]["logs"][-100:]
                         
-                    bot_state["latest_data"]["trades"] = res["trades"]
+                    # Add new trades to history
+                    for trade in res.get("trades", []):
+                        if trade not in bot_state["latest_data"]["trades"]:
+                            bot_state["latest_data"]["trades"].append(trade)
                 except Exception as e:
-                    add_system_log(f"Error in trading loop: {e}")
+                    add_system_log(f"Error in US trading loop: {e}")
             else:
-                add_system_log("Warning: Bot is active but bot instance is None. Attempting reinitialization...")
+                add_system_log("Warning: US Bot is active but bot_us instance is None. Attempting reinitialization...")
                 success, _ = init_bot_components()
                 if not success:
-                    add_system_log("Reinitialization failed. Stopping bot.")
-                    bot_state["running"] = False
+                    add_system_log("Reinitialization failed. Stopping US bot.")
+                    bot_state["running_us"] = False
                     
+        # 2. Run HK Bot if enabled
+        if bot_state["running_hk"]:
+            if bot_state["bot_hk"]:
+                try:
+                    add_system_log("Executing background HK bot trade scan...")
+                    res = bot_state["bot_hk"].run_once()
+                    bot_state["latest_data"]["balance"] = res["balance"]
+                    bot_state["latest_data"]["positions"] = res["positions"]
+                    
+                    # Merge logs
+                    for log in res["logs"]:
+                        if log not in bot_state["latest_data"]["logs"]:
+                            bot_state["latest_data"]["logs"].append(log)
+                    
+                    # Keep logs capped
+                    if len(bot_state["latest_data"]["logs"]) > 100:
+                        bot_state["latest_data"]["logs"] = bot_state["latest_data"]["logs"][-100:]
+                        
+                    # Add new trades to history
+                    for trade in res.get("trades", []):
+                        if trade not in bot_state["latest_data"]["trades"]:
+                            bot_state["latest_data"]["trades"].append(trade)
+                except Exception as e:
+                    add_system_log(f"Error in HK trading loop: {e}")
+            else:
+                add_system_log("Warning: HK Bot is active but bot_hk instance is None. Attempting reinitialization...")
+                success, _ = init_bot_components()
+                if not success:
+                    add_system_log("Reinitialization failed. Stopping HK bot.")
+                    bot_state["running_hk"] = False
+
+        if bot_state["running_us"] or bot_state["running_hk"]:
             await asyncio.sleep(Config.INTERVAL)
         else:
             await asyncio.sleep(1)
@@ -150,9 +207,11 @@ class ConfigModel(BaseModel):
     hk_max_qty_per_slot: Optional[int] = None
     hk_filter_price_limit: Optional[float] = 20.0
     hk_filter_price_operator: Optional[str] = "le"
+    strategy_us: Optional[str] = None
+    strategy_hk: Optional[str] = None
+    strategy: Optional[str] = "sma"
     interval: int
     candle_period: str
-    strategy: str
     # Credentials optional updates
     username: Optional[str] = ""
     password: Optional[str] = ""
@@ -170,9 +229,13 @@ class OrderModel(BaseModel):
 @app.get("/api/status")
 def get_status():
     return {
-        "running": bot_state["running"],
+        "running": bot_state["running_us"] or bot_state["running_hk"],
+        "running_us": bot_state["running_us"],
+        "running_hk": bot_state["running_hk"],
         "trade_mode": Config.TRADE_MODE,
-        "strategy": bot_state["strategy_name"],
+        "strategy": bot_state["strategy_us"],
+        "strategy_us": Config.STRATEGY_US,
+        "strategy_hk": Config.STRATEGY_HK,
         "symbols": Config.DEFAULT_SYMBOLS,
         "quantity": Config.TRADE_QUANTITY,
         "quantity_hk": Config.TRADE_QUANTITY_HK,
@@ -311,34 +374,53 @@ def get_signals():
     return signals_data
 
 @app.post("/api/start")
-def start_bot():
-    if bot_state["running"]:
-        return {"status": "already running", "message": "Bot is already running."}
-        
-    # Check if bot components are initialized, otherwise try initialization
-    if not bot_state["bot"]:
-        success, msg = init_bot_components()
-        if not success:
-            raise HTTPException(status_code=400, detail=f"Cannot start bot: {msg}")
-            
-    bot_state["running"] = True
-    add_system_log("Bot trading loop started by user.")
-    return {"status": "started", "message": "Trading bot successfully started."}
+def start_bot(market: Optional[str] = "us"):
+    market = (market or "us").lower()
+    if market == "hk":
+        if bot_state["running_hk"]:
+            return {"status": "already running", "message": "HK Bot is already running."}
+        if not bot_state["bot_hk"]:
+            success, msg = init_bot_components()
+            if not success:
+                raise HTTPException(status_code=400, detail=f"Cannot start HK bot: {msg}")
+        bot_state["running_hk"] = True
+        add_system_log("HK Bot trading loop started by user.")
+        return {"status": "started", "message": "HK Trading bot successfully started."}
+    else:
+        if bot_state["running_us"]:
+            return {"status": "already running", "message": "US Bot is already running."}
+        if not bot_state["bot_us"]:
+            success, msg = init_bot_components()
+            if not success:
+                raise HTTPException(status_code=400, detail=f"Cannot start US bot: {msg}")
+        bot_state["running_us"] = True
+        add_system_log("US Bot trading loop started by user.")
+        return {"status": "started", "message": "US Trading bot successfully started."}
 
 @app.post("/api/stop")
-def stop_bot():
-    if not bot_state["running"]:
-        return {"status": "already stopped", "message": "Bot is already idle."}
-        
-    bot_state["running"] = False
-    add_system_log("Bot trading loop stopped by user.")
-    return {"status": "stopped", "message": "Trading bot successfully stopped."}
+def stop_bot(market: Optional[str] = "us"):
+    market = (market or "us").lower()
+    if market == "hk":
+        if not bot_state["running_hk"]:
+            return {"status": "already stopped", "message": "HK Bot is already idle."}
+        bot_state["running_hk"] = False
+        add_system_log("HK Bot trading loop stopped by user.")
+        return {"status": "stopped", "message": "HK Trading bot successfully stopped."}
+    else:
+        if not bot_state["running_us"]:
+            return {"status": "already stopped", "message": "US Bot is already idle."}
+        bot_state["running_us"] = False
+        add_system_log("US Bot trading loop stopped by user.")
+        return {"status": "stopped", "message": "US Trading bot successfully stopped."}
 
 @app.post("/api/config")
 def update_config(data: ConfigModel):
     global config_lock, Config
     with config_lock:
         try:
+            # Force reload values from .env first to catch any manual external edits (e.g. credentials)
+            Config.reload_values()
+            
             # Overwrite .env file
             with open(".env", "w", encoding="utf-8") as f:
                 f.write(f"TRADE_MODE={data.trade_mode.upper()}\n\n")
@@ -376,21 +458,26 @@ def update_config(data: ConfigModel):
                 f.write(f"HK_FILTER_PRICE_LIMIT={hk_filter_price_limit}\n")
                 f.write(f"HK_FILTER_PRICE_OPERATOR={hk_filter_price_operator}\n")
                 
+                strategy_us = data.strategy_us if data.strategy_us else (data.strategy if data.strategy else Config.STRATEGY_US)
+                strategy_hk = data.strategy_hk if data.strategy_hk else (data.strategy if data.strategy else Config.STRATEGY_HK)
+                f.write(f"STRATEGY_US={strategy_us.lower()}\n")
+                f.write(f"STRATEGY_HK={strategy_hk.lower()}\n")
+                
                 f.write(f"INTERVAL={data.interval}\n")
                 f.write(f"CANDLE_PERIOD={data.candle_period.lower()}\n")
                 f.write(f"SIMULATED_INITIAL_CASH={Config.SIMULATED_INITIAL_CASH}\n")
+                f.write(f"SIMULATED_INITIAL_CASH_HKD={Config.SIMULATED_INITIAL_CASH_HKD}\n")
             
             # Force reload Config in-place
             Config.reload_values()
             
-            # Update strategy name state
-            bot_state["strategy_name"] = data.strategy.lower()
-            
             add_system_log("Configuration updated. Reinitializing bot components...")
             
             # If bot was running, stop it first
-            was_running = bot_state["running"]
-            bot_state["running"] = False
+            was_running_us = bot_state["running_us"]
+            was_running_hk = bot_state["running_hk"]
+            bot_state["running_us"] = False
+            bot_state["running_hk"] = False
             
             # Re-init
             success, msg = init_bot_components()
@@ -398,9 +485,11 @@ def update_config(data: ConfigModel):
                 raise HTTPException(status_code=400, detail=f"Configuration saved, but reinitialization failed: {msg}")
                 
             # Restore running state if possible
-            if was_running:
-                bot_state["running"] = True
-                add_system_log("Bot running state restored.")
+            if was_running_us:
+                bot_state["running_us"] = True
+            if was_running_hk:
+                bot_state["running_hk"] = True
+            add_system_log("Bot running states restored.")
                 
             return {"status": "success", "message": "Configuration updated and applied successfully."}
         except Exception as e:

@@ -14,6 +14,8 @@ class LocalPaperTradingClient(BaseTradingClient):
     def __init__(self, initial_cash: float = 10000.0, portfolio_file: str = "local_portfolio.json"):
         self.portfolio_file = portfolio_file
         self.initial_cash = initial_cash
+        from config import Config
+        self.initial_cash_hkd = Config.SIMULATED_INITIAL_CASH_HKD
         self._load_portfolio()
 
     def _load_portfolio(self):
@@ -30,7 +32,9 @@ class LocalPaperTradingClient(BaseTradingClient):
         self.portfolio = {
             "balance": {
                 "cash": self.initial_cash,
-                "currency": "USD"
+                "currency": "USD",
+                "cash_hkd": self.initial_cash_hkd,
+                "currency_hkd": "HKD"
             },
             "positions": {}, # Format: { "AAPL": { "qty": 10, "avg_price": 150.0 } }
             "transactions": [] # List of transaction logs
@@ -47,32 +51,45 @@ class LocalPaperTradingClient(BaseTradingClient):
 
     def get_account_balance(self) -> dict:
         self._load_portfolio()
-        cash = self.portfolio["balance"]["cash"]
+        cash_usd = self.portfolio["balance"].get("cash", self.initial_cash)
+        cash_hkd = self.portfolio["balance"].get("cash_hkd", self.initial_cash * 7.8)
         
-        # Calculate market value of positions
-        total_market_value = 0.0
-        total_cost = 0.0
+        total_mv_usd = 0.0
+        total_cost_usd = 0.0
+        
+        total_mv_hkd = 0.0
+        total_cost_hkd = 0.0
         
         for symbol, pos in self.portfolio["positions"].items():
             qty = pos["qty"]
             avg_price = pos["avg_price"]
             
-            # Fetch current price (using last closing price from yfinance)
             current_price = self._get_current_price(symbol)
             market_value = qty * current_price
             cost = qty * avg_price
             
-            total_market_value += market_value
-            total_cost += cost
+            if symbol.upper().endswith(".HK"):
+                total_mv_hkd += market_value
+                total_cost_hkd += cost
+            else:
+                total_mv_usd += market_value
+                total_cost_usd += cost
 
-        net_liquidation = cash + total_market_value
-        unrealized_pnl = total_market_value - total_cost
+        net_liq_usd = cash_usd + total_mv_usd
+        unrealized_pnl_usd = total_mv_usd - total_cost_usd
+
+        net_liq_hkd = cash_hkd + total_mv_hkd
+        unrealized_pnl_hkd = total_mv_hkd - total_cost_hkd
 
         return {
-            "cash": cash,
-            "net_liquidation": net_liquidation,
-            "unrealized_pnl": unrealized_pnl,
-            "currency": self.portfolio["balance"]["currency"]
+            "cash": cash_usd,
+            "net_liquidation": net_liq_usd,
+            "unrealized_pnl": unrealized_pnl_usd,
+            "currency": "USD",
+            "cash_hkd": cash_hkd,
+            "net_liquidation_hkd": net_liq_hkd,
+            "unrealized_pnl_hkd": unrealized_pnl_hkd,
+            "currency_hkd": "HKD"
         }
 
     def get_positions(self) -> list:
@@ -175,18 +192,26 @@ class LocalPaperTradingClient(BaseTradingClient):
                 "reason": f"Could not determine price for {symbol}"
             }
 
+        is_hk = symbol.endswith(".HK")
         total_cost = current_price * qty
-        cash = self.portfolio["balance"]["cash"]
+        cash_usd = self.portfolio["balance"].get("cash", self.initial_cash)
+        cash_hkd = self.portfolio["balance"].get("cash_hkd", self.initial_cash * 7.8)
+        
+        cash = cash_hkd if is_hk else cash_usd
+        currency_label = "HKD" if is_hk else "USD"
 
         if action == "BUY":
             if cash < total_cost:
                 return {
                     "status": "FAILED",
-                    "reason": f"Insufficient funds. Required: ${total_cost:.2f}, Available: ${cash:.2f}"
+                    "reason": f"Insufficient funds. Required: {total_cost:.2f} {currency_label}, Available: {cash:.2f} {currency_label}"
                 }
             
             # Deduct cash
-            self.portfolio["balance"]["cash"] -= total_cost
+            if is_hk:
+                self.portfolio["balance"]["cash_hkd"] = cash - total_cost
+            else:
+                self.portfolio["balance"]["cash"] = cash - total_cost
             
             # Update position
             pos = self.portfolio["positions"].get(symbol, {"qty": 0, "avg_price": 0.0})
@@ -210,7 +235,10 @@ class LocalPaperTradingClient(BaseTradingClient):
                 }
                 
             # Add to cash
-            self.portfolio["balance"]["cash"] += total_cost
+            if is_hk:
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd + total_cost
+            else:
+                self.portfolio["balance"]["cash"] = cash_usd + total_cost
             
             # Update position
             pos["qty"] -= qty

@@ -80,6 +80,10 @@ interface Balance {
   net_liquidation: number;
   unrealized_pnl: number;
   currency: string;
+  cash_hkd?: number;
+  net_liquidation_hkd?: number;
+  unrealized_pnl_hkd?: number;
+  currency_hkd?: string;
 }
 
 interface Position {
@@ -92,8 +96,12 @@ interface Position {
 
 interface BotStatus {
   running: boolean;
+  running_us?: boolean;
+  running_hk?: boolean;
   trade_mode: string;
   strategy: string;
+  strategy_us?: string;
+  strategy_hk?: string;
   symbols: string[];
   quantity: number;
   quantity_hk: number;
@@ -313,7 +321,11 @@ export default function HongkongHome() {
     cash: 0.0,
     net_liquidation: 0.0,
     unrealized_pnl: 0.0,
-    currency: "USD"
+    currency: "USD",
+    cash_hkd: 0.0,
+    net_liquidation_hkd: 0.0,
+    unrealized_pnl_hkd: 0.0,
+    currency_hkd: "HKD"
   });
 
   const [positions, setPositions] = useState<Position[]>([]);
@@ -646,14 +658,15 @@ export default function HongkongHome() {
 
   const handleToggleBot = async () => {
     setActionLoading(true);
-    const endpoint = status.running ? "stop" : "start";
+    const isRunning = status.running_hk !== undefined ? status.running_hk : status.running;
+    const endpoint = isRunning ? "stop" : "start";
     try {
-      const res = await fetch(`${API_BASE}/${endpoint}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/${endpoint}?market=hk`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         showToast(`Error: ${data.detail || "Request failed"}`, "error");
       } else {
-        showToast(`บอท${status.running ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
+        showToast(`บอทหุ้นฮ่องกง ${isRunning ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
         await loadData();
       }
     } catch (err) {
@@ -984,9 +997,13 @@ export default function HongkongHome() {
     }
   };
 
-  const isProfit = balance.unrealized_pnl >= 0;
-  const pnlPercent = balance.net_liquidation > 0 
-    ? (balance.unrealized_pnl / (balance.net_liquidation - balance.unrealized_pnl)) * 100 
+  const cashHkd = balance.cash_hkd !== undefined ? balance.cash_hkd : balance.cash * 7.8;
+  const netLiqHkd = balance.net_liquidation_hkd !== undefined ? balance.net_liquidation_hkd : balance.net_liquidation * 7.8;
+  const unrealizedPnHkd = balance.unrealized_pnl_hkd !== undefined ? balance.unrealized_pnl_hkd : balance.unrealized_pnl * 7.8;
+
+  const isProfitHk = unrealizedPnHkd >= 0;
+  const pnlPercentHk = (netLiqHkd - unrealizedPnHkd) > 0 
+    ? (unrealizedPnHkd / (netLiqHkd - unrealizedPnHkd)) * 100 
     : 0;
 
   const filteredSignals = signals.filter(sig => {
@@ -1019,17 +1036,17 @@ export default function HongkongHome() {
             <CardContent sx={{ position: 'relative', overflow: 'hidden' }}>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  ยอดเงินสดคงเหลือ
+                  ยอดเงินสดคงเหลือ ฮ่องกง
                 </Typography>
                 <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
                   <Wallet size={18} color="#3b82f6" />
                 </Box>
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
-                ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>
+                {cashHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Database size={10} /> สกุลเงิน: {balance.currency}
+                <Database size={10} /> ยอดสหรัฐฯ: ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
               </Typography>
             </CardContent>
           </Card>
@@ -1039,17 +1056,17 @@ export default function HongkongHome() {
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  มูลค่าพอร์ตรวม
+                  มูลค่าพอร์ตรวม ฮ่องกง
                 </Typography>
                 <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
                   <TrendingUp size={18} color="#3b82f6" />
                 </Box>
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
-                ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>
+                {netLiqHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                เงินสด + มูลค่าตลาดของหุ้นที่ถือครอง
+                ยอดสหรัฐฯ: ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
               </Typography>
             </CardContent>
           </Card>
@@ -1059,61 +1076,61 @@ export default function HongkongHome() {
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  กำไร/ขาดทุนสะสม
+                  กำไร/ขาดทุนสะสม ฮ่องกง
                 </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: isProfit ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)', display: 'flex' }}>
-                  {isProfit ? <TrendingUp size={18} color="#10b981" /> : <TrendingDown size={18} color="#f43f5e" />}
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: isProfitHk ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)', display: 'flex' }}>
+                  {isProfitHk ? <TrendingUp size={18} color="#10b981" /> : <TrendingDown size={18} color="#f43f5e" />}
                 </Box>
               </Box>
               <Typography 
                 variant="h4" 
-                color={isProfit ? "success.main" : "error.main"}
-                sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}
+                color={isProfitHk ? "success.main" : "error.main"}
+                sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}
               >
-                {isProfit ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                {isProfitHk ? "+" : ""}{unrealizedPnHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
               <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
                 <Chip 
-                  label={`${isProfit ? "+" : ""}${pnlPercent.toFixed(2)}%`}
+                  label={`${isProfitHk ? "+" : ""}${pnlPercentHk.toFixed(2)}%`}
                   size="small"
-                  color={isProfit ? "success" : "error"}
+                  color={isProfitHk ? "success" : "error"}
                   sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px' }}
                 />
                 <Typography variant="caption" color="text.secondary">
-                  จากเงินลงทุนทั้งหมด
+                  ยอดสหรัฐฯ: {balance.unrealized_pnl >= 0 ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                 </Typography>
               </Box>
             </CardContent>
           </Card>
 
           {/* Card 4: Bot status toggle control */}
-          <Card sx={{ borderLeft: `2px solid ${status.running ? '#10b981' : '#64748b'}` }}>
+          <Card sx={{ borderLeft: `2px solid ${(status.running_hk !== undefined ? status.running_hk : status.running) ? '#10b981' : '#64748b'}` }}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  สถานะการทำงานบอท
+                  สถานะการทำงานบอท ฮ่องกง
                 </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: status.running ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
-                  <Activity size={18} color={status.running ? "#10b981" : "#64748b"} />
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: (status.running_hk !== undefined ? status.running_hk : status.running) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
+                  <Activity size={18} color={(status.running_hk !== undefined ? status.running_hk : status.running) ? "#10b981" : "#64748b"} />
                 </Box>
               </Box>
               <Typography 
                 variant="h4" 
-                color={status.running ? "success.main" : "text.secondary"}
+                color={(status.running_hk !== undefined ? status.running_hk : status.running) ? "success.main" : "text.secondary"}
                 sx={{ fontWeight: 800, mb: 0.5 }}
               >
-                {status.running ? "RUNNING" : "STANDBY"}
+                {(status.running_hk !== undefined ? status.running_hk : status.running) ? "RUNNING" : "STANDBY"}
               </Typography>
               
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  กลยุทธ์: {status.strategy.toUpperCase()}
+                  กลยุทธ์: {(status.strategy_hk !== undefined ? status.strategy_hk : status.strategy).toUpperCase()}
                 </Typography>
                 
                 <FormControlLabel
                   control={
                     <Switch 
-                      checked={status.running} 
+                      checked={status.running_hk !== undefined ? status.running_hk : status.running} 
                       onChange={handleToggleBot}
                       color="success"
                       disabled={actionLoading || !connected}

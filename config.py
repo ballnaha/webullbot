@@ -23,7 +23,10 @@ class Config:
     HK_FILTER_PRICE_OPERATOR = "le"
     INTERVAL = 60
     CANDLE_PERIOD = "m5"
+    STRATEGY_US = "sma"
+    STRATEGY_HK = "sma"
     SIMULATED_INITIAL_CASH = 10000.0
+    SIMULATED_INITIAL_CASH_HKD = 78000.0
     PORTFOLIO_FILE = "local_portfolio.json"
     
     # Inverse ETF hedging configurations
@@ -69,7 +72,10 @@ class Config:
         cls.HK_FILTER_PRICE_OPERATOR = os.getenv("HK_FILTER_PRICE_OPERATOR", "le").lower()
         cls.INTERVAL = int(os.getenv("INTERVAL", "60"))
         cls.CANDLE_PERIOD = os.getenv("CANDLE_PERIOD", "m5").lower()
+        cls.STRATEGY_US = os.getenv("STRATEGY_US", "sma").lower()
+        cls.STRATEGY_HK = os.getenv("STRATEGY_HK", "sma").lower()
         cls.SIMULATED_INITIAL_CASH = float(os.getenv("SIMULATED_INITIAL_CASH", "10000.0"))
+        cls.SIMULATED_INITIAL_CASH_HKD = float(os.getenv("SIMULATED_INITIAL_CASH_HKD", str(cls.SIMULATED_INITIAL_CASH * 7.8)))
         cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
 
     @classmethod

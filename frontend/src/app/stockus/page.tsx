@@ -82,8 +82,12 @@ interface Position {
 
 interface BotStatus {
   running: boolean;
+  running_us?: boolean;
+  running_hk?: boolean;
   trade_mode: string;
   strategy: string;
+  strategy_us?: string;
+  strategy_hk?: string;
   symbols: string[];
   quantity: number;
   quantity_hk: number;
@@ -618,14 +622,15 @@ export default function StockUsHome() {
 
   const handleToggleBot = async () => {
     setActionLoading(true);
-    const endpoint = status.running ? "stop" : "start";
+    const isRunning = status.running_us !== undefined ? status.running_us : status.running;
+    const endpoint = isRunning ? "stop" : "start";
     try {
-      const res = await fetch(`${API_BASE}/${endpoint}`, { method: "POST" });
+      const res = await fetch(`${API_BASE}/${endpoint}?market=us`, { method: "POST" });
       const data = await res.json();
       if (!res.ok) {
         showToast(`Error: ${data.detail || "Request failed"}`, "error");
       } else {
-        showToast(`บอท${status.running ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
+        showToast(`บอทหุ้นสหรัฐฯ ${isRunning ? 'หยุดทำงาน' : 'เริ่มทำงาน'}สำเร็จ`, "success");
         await loadData();
       }
     } catch (err) {
@@ -835,33 +840,33 @@ export default function StockUsHome() {
           </Card>
 
           {/* Card 4: Bot status toggle control */}
-          <Card sx={{ borderLeft: `2px solid ${status.running ? '#10b981' : '#64748b'}` }}>
+          <Card sx={{ borderLeft: `2px solid ${(status.running_us !== undefined ? status.running_us : status.running) ? '#10b981' : '#64748b'}` }}>
             <CardContent>
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  สถานะการทำงานบอท
+                  สถานะการทำงานบอท สหรัฐฯ
                 </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: status.running ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
-                  <Activity size={18} color={status.running ? "#10b981" : "#64748b"} />
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: (status.running_us !== undefined ? status.running_us : status.running) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
+                  <Activity size={18} color={(status.running_us !== undefined ? status.running_us : status.running) ? "#10b981" : "#64748b"} />
                 </Box>
               </Box>
               <Typography 
                 variant="h4" 
-                color={status.running ? "success.main" : "text.secondary"}
+                color={(status.running_us !== undefined ? status.running_us : status.running) ? "success.main" : "text.secondary"}
                 sx={{ fontWeight: 800, mb: 0.5 }}
               >
-                {status.running ? "RUNNING" : "STANDBY"}
+                {(status.running_us !== undefined ? status.running_us : status.running) ? "RUNNING" : "STANDBY"}
               </Typography>
               
               <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
                 <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  กลยุทธ์: {status.strategy.toUpperCase()}
+                  กลยุทธ์: {(status.strategy_us !== undefined ? status.strategy_us : status.strategy).toUpperCase()}
                 </Typography>
                 
                 <FormControlLabel
                   control={
                     <Switch 
-                      checked={status.running} 
+                      checked={status.running_us !== undefined ? status.running_us : status.running} 
                       onChange={handleToggleBot}
                       color="success"
                       disabled={actionLoading || !connected}
