@@ -25,14 +25,21 @@ import {
   InputLabel, 
   Switch, 
   FormControlLabel,
+  InputAdornment,
   Alert, 
   AlertTitle, 
   Divider, 
   Chip,
   Tabs,
   Tab,
+  TablePagination,
   CircularProgress,
-  Drawer
+  Drawer,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemSecondaryAction,
+  IconButton
 } from '@mui/material';
 
 import Header from 'frontend/components/Header';
@@ -60,7 +67,10 @@ import {
   Eye,
   ListPlus,
   Trash2,
-  Plus
+  Plus,
+  Minus,
+  X,
+  Save
 } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8484/api";
@@ -91,6 +101,11 @@ interface BotStatus {
   symbols: string[];
   quantity: number;
   quantity_hk: number;
+  hk_max_slots?: number;
+  hk_max_price_per_slot?: number;
+  hk_max_qty_per_slot?: number;
+  hk_filter_price_limit?: number;
+  hk_filter_price_operator?: string;
   interval: number;
   candle_period: string;
   has_client: boolean;
@@ -125,6 +140,49 @@ const STOCK_NAMES: Record<string, string> = {
   "AMZN": "Amazon.com, Inc.",
   "TSLA": "Tesla, Inc.",
   "NVDA": "NVIDIA Corporation",
+  "META": "Meta Platforms, Inc.",
+  "NFLX": "Netflix, Inc.",
+  "AMD": "Advanced Micro Devices, Inc.",
+  "INTC": "Intel Corporation",
+  "PLTR": "Palantir Technologies Inc.",
+  "AVGO": "Broadcom Inc.",
+  "QQQ": "Invesco QQQ Trust",
+  "SPY": "SPDR S&P 500 ETF Trust",
+  "SMH": "VanEck Semiconductor ETF",
+  "SOXX": "iShares Semiconductor ETF",
+  "ARKK": "ARK Innovation ETF",
+  "IWM": "iShares Russell 2000 ETF",
+  "XLF": "Financial Select Sector SPDR Fund",
+  "XLE": "Energy Select Sector SPDR Fund",
+  "GDX": "VanEck Gold Miners ETF",
+  "DIA": "SPDR Dow Jones Industrial Average ETF Trust",
+  "PYPL": "PayPal Holdings, Inc.",
+  "BABA": "Alibaba Group Holding Limited",
+  "ADBE": "Adobe Inc.",
+  "CRM": "Salesforce, Inc.",
+  "NKE": "Nike, Inc.",
+  "DIS": "The Walt Disney Company",
+  
+  // US Inverse ETFs
+  "AAPD": "Direxion Daily AAPL Bear 1.5X Shares",
+  "TSLQ": "Direxion Daily TSLA Bear 1X Shares",
+  "NVDS": "Direxion Daily NVDA Bear 1.25X Shares",
+  "MSFD": "Direxion Daily MSFT Bear 1.5X Shares",
+  "AMZD": "Direxion Daily AMZN Bear 1X Shares",
+  "GGLD": "Direxion Daily GOOGL Bear 1X Shares",
+  "METD": "Direxion Daily META Bear 1X Shares",
+  "NFLD": "Direxion Daily NFLX Bear 1X Shares",
+  "AMDS": "Direxion Daily AMD Bear 1X Shares",
+  "AVGD": "Direxion Daily AVGO Bear 1X Shares",
+  "SQQQ": "ProShares UltraPro Short QQQ (3x Short)",
+  "SPXS": "Direxion Daily S&P 500 Bear 3X Shares",
+  "SOXS": "Direxion Daily Semiconductor Bear 3X Shares",
+  "SARK": "Tuttle Capital Short Innovation ETF (1x Short ARKK)",
+  "TZA": "Direxion Daily Small Cap Bear 3X Shares (3x Short IWM)",
+  "FAZ": "Direxion Daily Financial Bear 3X Shares (3x Short XLF)",
+  "ERY": "Direxion Daily Energy Bear 2X Shares (2x Short XLE)",
+  "DUST": "Direxion Daily Gold Miners Bear 2X Shares (2x Short GDX)",
+  "SDOW": "ProShares UltraPro Short Dow30 (3x Short DIA)",
   
   // HK Tickers (with and without leading zeros for robustness)
   "700.HK": "Tencent Holdings Ltd.",
@@ -313,9 +371,17 @@ export default function StockUsHome() {
   const [actionLoading, setActionLoading] = useState(false);
   const [maxPrice, setMaxPrice] = useState<string>(""); 
   const [priceOperator, setPriceOperator] = useState<"le" | "ge">("ge"); 
+  const [workspaceTab, setWorkspaceTab] = useState(0);
+  const [page, setPage] = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [pageEtf, setPageEtf] = useState(0);
+  const [rowsPerPageEtf, setRowsPerPageEtf] = useState(10);
+  const [pagePos, setPagePos] = useState(0);
+  const [rowsPerPagePos, setRowsPerPagePos] = useState(10);
   
   // Watchlist Drawer States
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
   const [drawerUsSymbols, setDrawerUsSymbols] = useState<string[]>([]);
   const [newSymbolInput, setNewSymbolInput] = useState("");
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
@@ -401,7 +467,7 @@ export default function StockUsHome() {
       setFormQty(status.quantity);
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
-      setFormStrategy(status.strategy);
+      setFormStrategy(status.strategy_us !== undefined ? status.strategy_us : status.strategy);
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -450,7 +516,8 @@ export default function StockUsHome() {
           quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
-          strategy: status.strategy,
+          strategy_us: status.strategy_us !== undefined ? status.strategy_us : status.strategy,
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
           username: "",
           password: "",
           trade_pin: "",
@@ -492,7 +559,8 @@ export default function StockUsHome() {
           quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
-          strategy: status.strategy,
+          strategy_us: status.strategy_us !== undefined ? status.strategy_us : status.strategy,
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
           username: "",
           password: "",
           trade_pin: "",
@@ -515,6 +583,57 @@ export default function StockUsHome() {
     } finally {
       setActionLoading(false);
     }
+  };
+
+  const handleSaveUsSettings = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setActionLoading(true);
+    try {
+      const res = await fetch(`${API_BASE}/config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          trade_mode: status.trade_mode,
+          symbols: status.symbols,
+          quantity: formQty,
+          quantity_hk: status.quantity_hk,
+          hk_max_slots: status.hk_max_slots,
+          hk_max_price_per_slot: status.hk_max_price_per_slot,
+          hk_max_qty_per_slot: status.hk_max_qty_per_slot,
+          hk_filter_price_limit: status.hk_filter_price_limit,
+          hk_filter_price_operator: status.hk_filter_price_operator,
+          interval: formInterval,
+          candle_period: formPeriod,
+          strategy_us: formStrategy,
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
+          username: "",
+          password: "",
+          trade_pin: "",
+          app_key: "",
+          app_secret: ""
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        showToast(`บันทึกการตั้งค่าล้มเหลว: ${data.detail || "Validation failed"}`, "error");
+      } else {
+        showToast("บันทึกการตั้งค่าบอทสหรัฐฯ เรียบร้อยแล้ว!", "success");
+        setSettingsDrawerOpen(false);
+        await loadData();
+        setIsConfigInitialized(false);
+      }
+    } catch (err) {
+      showToast("ไม่สามารถอัปเดตการตั้งค่าได้หลังบ้านอาจรีสตาร์ทอยู่", "error");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleLoadUsBudgetDefaults = () => {
+    setFormQty(300);
+    setFormInterval(60);
+    showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $300 เรียบร้อยแล้วครับ", "info");
   };
 
   const handleManualScan = async () => {
@@ -550,7 +669,8 @@ export default function StockUsHome() {
           quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
-          strategy: status.strategy,
+          strategy_us: status.strategy_us !== undefined ? status.strategy_us : status.strategy,
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
           username: "",
           password: "",
           trade_pin: "",
@@ -575,7 +695,10 @@ export default function StockUsHome() {
 
   const handleMonitorAllRecommended = async () => {
     setActionLoading(true);
-    const recommendedList = ["AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC"];
+    const recommendedList = [
+      "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
+      "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
+    ];
     
     const updatedSymbols = [...status.symbols];
     let addedCount = 0;
@@ -603,7 +726,8 @@ export default function StockUsHome() {
           quantity_hk: status.quantity_hk,
           interval: status.interval,
           candle_period: status.candle_period,
-          strategy: status.strategy,
+          strategy_us: status.strategy_us !== undefined ? status.strategy_us : status.strategy,
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
           username: "",
           password: "",
           trade_pin: "",
@@ -759,7 +883,16 @@ export default function StockUsHome() {
     : 0;
 
   const filteredSignals = signals.filter(sig => {
-    return !sig.symbol.endsWith('.HK');
+    const isMarketMatch = !sig.symbol.endsWith('.HK');
+    if (!isMarketMatch) return false;
+    if (maxPrice !== "") {
+      const priceNum = parseFloat(maxPrice);
+      if (!isNaN(priceNum)) {
+        if (priceOperator === "ge" && sig.price < priceNum) return false;
+        if (priceOperator === "le" && sig.price > priceNum) return false;
+      }
+    }
+    return true;
   });
 
   return (
@@ -888,28 +1021,72 @@ export default function StockUsHome() {
           </Card>
         </Box>
 
-        {/* 3. Main Body Container (Vertical Stack) */}
+        {/* 3. Main Trading Workspace (Professional Tabbed Panel) */}
         <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          
-          {/* Real-time Signals Scanner */}
-          <Card>
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: 'wrap', gap: 2 }}>
-                <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                  <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.06)', display: 'flex' }}>
-                    <Eye size={18} color="#3b82f6" />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                      สแกนเนอร์สัญญาณเทรดเรียลไทม์ (Real-time Trading Signals)
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค
-                    </Typography>
-                  </Box>
+          <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', overflow: 'hidden' }}>
+            {/* Workspace Header */}
+            <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : 'rgba(16, 185, 129, 0.06)', display: 'flex' }}>
+                  {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : <Activity size={20} color="#10b981" />}
                 </Box>
-                
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
+                    {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : "พอร์ตโฟลิโอสินทรัพย์สหรัฐฯ (Positions)"}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้"}
+                  </Typography>
+                </Box>
+              </Box>
+              
+              {workspaceTab === 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <FormControl size="small" sx={{ width: 65 }}>
+                    <Select
+                      value={priceOperator}
+                      disabled={actionLoading || !connected}
+                      onChange={(e) => {
+                        setPriceOperator(e.target.value as "le" | "ge");
+                        setPage(0);
+                      }}
+                      sx={{ 
+                        borderRadius: '8px 0 0 8px',
+                        bgcolor: 'rgba(255,255,255,0.02)',
+                        '& .MuiOutlinedInput-notchedOutline': {
+                          borderRight: 'none'
+                        }
+                      }}
+                    >
+                      <MenuItem value="ge">≥</MenuItem>
+                      <MenuItem value="le">≤</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    size="small"
+                    label="ราคา (Price)"
+                    type="number"
+                    disabled={actionLoading}
+                    value={maxPrice}
+                    onChange={(e) => {
+                      setMaxPrice(e.target.value);
+                      setPage(0);
+                    }}
+                    placeholder="ทั้งหมด"
+                    slotProps={{
+                      htmlInput: { min: 0, step: 1 },
+                      inputLabel: { shrink: true }
+                    }}
+                    sx={{ 
+                      width: 110,
+                      mr: 1.5,
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '0 8px 8px 0',
+                        bgcolor: 'rgba(255,255,255,0.02)'
+                      }
+                    }}
+                  />
+                  
                   <Button
                     variant="outlined"
                     color="primary"
@@ -935,6 +1112,30 @@ export default function StockUsHome() {
                   </Button>
 
                   <Button
+                    variant="outlined"
+                    color="secondary"
+                    size="small"
+                    disabled={actionLoading || !connected}
+                    onClick={() => setSettingsDrawerOpen(true)}
+                    startIcon={<Settings size={16} />}
+                    sx={{ 
+                      height: 34, 
+                      borderRadius: '8px', 
+                      fontSize: '0.78rem',
+                      px: 2,
+                      mr: 1.5,
+                      borderColor: 'rgba(99, 102, 241, 0.4)',
+                      color: '#a5b4fc',
+                      '&:hover': {
+                        borderColor: '#6366f1',
+                        bgcolor: 'rgba(99, 102, 241, 0.05)'
+                      }
+                    }}
+                  >
+                    ตั้งค่าบอท (Settings)
+                  </Button>
+
+                  <Button
                     variant="contained"
                     color="secondary"
                     size="small"
@@ -954,153 +1155,450 @@ export default function StockUsHome() {
                     )}
                   </Button>
                 </Box>
-              </Box>
+              )}
+            </Box>
 
-              <Box sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  📊 กำลังแสดง <span style={{ color: '#3b82f6', fontWeight: 700 }}>{filteredSignals.length}</span> จากทั้งหมด <span style={{ fontWeight: 600 }}>{signals.filter(s => !s.symbol.endsWith('.HK')).length}</span> หุ้นสหรัฐฯ ในระบบสแกนเนอร์
-                </Typography>
-              </Box>
+            {/* Tab Swapper */}
+            <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', px: 3, bgcolor: 'rgba(255,255,255,0.01)' }}>
+              <Tabs 
+                value={workspaceTab} 
+                onChange={(e, newIdx) => setWorkspaceTab(newIdx)} 
+                textColor="primary" 
+                indicatorColor="primary"
+              >
+                <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+                <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+                <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              </Tabs>
+            </Box>
 
-              <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow>
-                        <TableCell sx={{ width: '28%' }}>หุ้น / บริษัท (Ticker & Company)</TableCell>
-                        <TableCell align="right" sx={{ width: '12%' }}>ราคาล่าสุด</TableCell>
-                        <TableCell align="left" sx={{ pl: 4, width: '25%' }}>ตัวชี้วัดทางเทคนิค (Technical Indicators)</TableCell>
-                        <TableCell align="center" sx={{ width: '20%' }}>ความสอดคล้องสัญญาณ (Confluence)</TableCell>
-                        <TableCell align="center" sx={{ width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {isSignalsLoading && filteredSignals.length === 0 ? (
+            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+              {/* Tab 1: Long Scanner */}
+              {workspaceTab === 0 && (
+                <>
+                  <Box sx={{ px: 3, pb: 2, pt: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                      📊 กำลังแสดง <span style={{ color: '#3b82f6', fontWeight: 700 }}>{filteredSignals.length}</span> จากทั้งหมด <span style={{ fontWeight: 600 }}>{signals.filter(s => !s.symbol.endsWith('.HK')).length}</span> หุ้นสหรัฐฯ ในระบบสแกนเนอร์
+                    </Typography>
+                    {maxPrice && (
+                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, bgcolor: 'rgba(16, 185, 129, 0.08)', px: 1.5, py: 0.4, borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
+                        คัดกรอง: ราคา {priceOperator === 'ge' ? '≥' : '≤'} {maxPrice} USD
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                         <TableRow>
-                          <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
-                              <CircularProgress size={24} color="primary" />
-                              <Typography variant="body2" color="text.secondary">กำลังโหลดสัญญาณทางเทคนิคเรียลไทม์...</Typography>
-                            </Box>
-                          </TableCell>
+                          <TableCell sx={{ width: '28%' }}>หุ้น / บริษัท (Ticker & Company)</TableCell>
+                          <TableCell align="right" sx={{ width: '12%' }}>ราคาล่าสุด</TableCell>
+                          <TableCell align="left" sx={{ pl: 4, width: '25%' }}>ตัวชี้วัดทางเทคนิค (Technical Indicators)</TableCell>
+                          <TableCell align="center" sx={{ width: '20%' }}>ความสอดคล้องสัญญาณ (Confluence)</TableCell>
+                          <TableCell align="center" sx={{ width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
                         </TableRow>
-                      ) : filteredSignals.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                            {connected ? "ไม่มีข้อมูลหุ้นในระดับราคาที่เลือกขณะนี้" : "เซิร์ฟเวอร์ออฟไลน์ ไม่สามารถดึงข้อมูลสัญญาณได้"}
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        filteredSignals.map((sig) => {
-                            const getConfluenceSignal = (smaSig: string, rsiSig: string, hybridSig: string) => {
-                              let score = 0;
-                              const parseVal = (sig: string) => {
-                                if (sig === "BUY") return 1;
-                                if (sig === "SELL") return -1;
-                                return 0;
+                      </TableHead>
+                      <TableBody>
+                        {isSignalsLoading && filteredSignals.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
+                                <CircularProgress size={24} color="primary" />
+                                <Typography variant="body2" color="text.secondary">กำลังโหลดสัญญาณทางเทคนิคเรียลไทม์...</Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : filteredSignals.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                              {connected ? "ไม่มีข้อมูลหุ้นในระดับราคาที่เลือกขณะนี้" : "เซิร์ฟเวอร์ออฟไลน์ ไม่สามารถดึงข้อมูลสัญญาณได้"}
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredSignals
+                            .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
+                            .map((sig) => {
+                              const getConfluenceSignal = (smaSig: string, rsiSig: string, hybridSig: string) => {
+                                let score = 0;
+                                const parseVal = (sig: string) => {
+                                  if (sig === "BUY") return 1;
+                                  if (sig === "SELL") return -1;
+                                  return 0;
+                                };
+                                score += parseVal(smaSig);
+                                score += parseVal(rsiSig);
+                                score += parseVal(hybridSig);
+                                
+                                if (score === 3) {
+                                  return { label: "100% BUY", desc: "มติเอกฉันท์ซื้อ (3/3)", bgcolor: 'rgba(22, 199, 132, 0.15)', textcolor: '#16c784', border: '1px solid #16c784' };
+                                } else if (score === 2) {
+                                  return { label: "67% BUY", desc: "แนวโน้มซื้อแข็งแกร่ง (2/3)", bgcolor: 'rgba(22, 199, 132, 0.08)', textcolor: '#16c784', border: '1px dashed rgba(22, 199, 132, 0.5)' };
+                                } else if (score === 1) {
+                                  return { label: "33% BUY", desc: "สัญญาณซื้ออ่อน (1/3)", bgcolor: 'transparent', textcolor: '#16c784', border: '1px solid rgba(22, 199, 132, 0.25)' };
+                                } else if (score === -3) {
+                                  return { label: "100% SELL", desc: "มติเอกฉันท์ขาย (3/3)", bgcolor: 'rgba(234, 57, 67, 0.15)', textcolor: '#ea3943', border: '1px solid #ea3943' };
+                                } else if (score === -2) {
+                                  return { label: "67% SELL", desc: "แนวโน้มขายแข็งแกร่ง (2/3)", bgcolor: 'rgba(234, 57, 67, 0.08)', textcolor: '#ea3943', border: '1px dashed rgba(234, 57, 67, 0.5)' };
+                                } else if (score === -1) {
+                                  return { label: "33% SELL", desc: "สัญญาณขายอ่อน (1/3)", bgcolor: 'transparent', textcolor: '#ea3943', border: '1px solid rgba(234, 57, 67, 0.25)' };
+                                } else {
+                                  return { label: "NEUTRAL / HOLD", desc: "ไม่มีทิศทางชัดเจน (0/3)", bgcolor: 'rgba(148, 163, 184, 0.05)', textcolor: '#94a3b8', border: '1px solid rgba(148, 163, 184, 0.15)' };
+                                }
                               };
-                              score += parseVal(smaSig);
-                              score += parseVal(rsiSig);
-                              score += parseVal(hybridSig);
                               
-                              if (score === 3) {
-                                return { label: "100% BUY", desc: "มติเอกฉันท์ซื้อ (3/3)", bgcolor: 'rgba(22, 199, 132, 0.15)', textcolor: '#16c784', border: '1px solid #16c784' };
-                              } else if (score === 2) {
-                                return { label: "67% BUY", desc: "แนวโน้มซื้อแข็งแกร่ง (2/3)", bgcolor: 'rgba(22, 199, 132, 0.08)', textcolor: '#16c784', border: '1px dashed rgba(22, 199, 132, 0.5)' };
-                              } else if (score === 1) {
-                                return { label: "33% BUY", desc: "สัญญาณซื้ออ่อน (1/3)", bgcolor: 'transparent', textcolor: '#16c784', border: '1px solid rgba(22, 199, 132, 0.25)' };
-                              } else if (score === -3) {
-                                return { label: "100% SELL", desc: "มติเอกฉันท์ขาย (3/3)", bgcolor: 'rgba(234, 57, 67, 0.15)', textcolor: '#ea3943', border: '1px solid #ea3943' };
-                              } else if (score === -2) {
-                                return { label: "67% SELL", desc: "แนวโน้มขายแข็งแกร่ง (2/3)", bgcolor: 'rgba(234, 57, 67, 0.08)', textcolor: '#ea3943', border: '1px dashed rgba(234, 57, 67, 0.5)' };
-                              } else if (score === -1) {
-                                return { label: "33% SELL", desc: "สัญญาณขายอ่อน (1/3)", bgcolor: 'transparent', textcolor: '#ea3943', border: '1px solid rgba(234, 57, 67, 0.25)' };
-                              } else {
-                                return { label: "NEUTRAL / HOLD", desc: "ไม่มีทิศทางชัดเจน (0/3)", bgcolor: 'rgba(148, 163, 184, 0.05)', textcolor: '#94a3b8', border: '1px solid rgba(148, 163, 184, 0.15)' };
-                              }
+                              const conf = getConfluenceSignal(sig.sma_signal, sig.rsi_signal, sig.hybrid_signal);
+                              
+                              return (
+                                <TableRow key={sig.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                                  <TableCell sx={{ py: 1.5 }}>
+                                    <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                      {sig.symbol}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
+                                      {STOCK_NAMES[sig.symbol] || "US Listed Company"}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, py: 1.5 }}>
+                                    ${sig.price > 0 ? sig.price.toFixed(2) : "N/A"}
+                                  </TableCell>
+                                  <TableCell align="left" sx={{ py: 1.5, pl: 4 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
+                                      <Typography variant="body2" sx={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <span style={{ color: '#94a3b8', fontWeight: 600 }}>RSI (14):</span>
+                                        <span style={{ 
+                                          color: sig.rsi > 60 ? '#ea3943' : sig.rsi < 40 ? '#16c784' : '#94a3b8',
+                                          fontWeight: (sig.rsi > 60 || sig.rsi < 40) ? 700 : 500
+                                        }}>
+                                          {sig.rsi > 0 ? sig.rsi.toFixed(1) : "N/A"}
+                                        </span>
+                                      </Typography>
+                                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
+                                        SMA(10/30): {sig.sma_fast > 0 ? `$${sig.sma_fast.toFixed(2)} / $${sig.sma_slow.toFixed(2)}` : "N/A"}
+                                      </Typography>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ py: 1.5 }}>
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+                                      <Box sx={{ 
+                                        display: 'inline-block',
+                                        px: 1.5,
+                                        py: 0.5,
+                                        borderRadius: '6px',
+                                        bgcolor: conf.bgcolor,
+                                        color: conf.textcolor,
+                                        border: conf.border,
+                                        fontWeight: 800,
+                                        fontSize: '0.75rem',
+                                        letterSpacing: '0.02em',
+                                        boxShadow: conf.label.includes("100%") 
+                                          ? `0 0 12px ${conf.textcolor}20` 
+                                          : 'none'
+                                      }}>
+                                        {conf.label}
+                                      </Box>
+                                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', fontWeight: 500 }}>
+                                        {conf.desc}
+                                      </Typography>
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center" sx={{ py: 1.5 }}>
+                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                      <Button
+                                        variant="contained"
+                                        color="success"
+                                        size="small"
+                                        onClick={() => handleQuickTrade(sig.symbol, "BUY")}
+                                        disabled={actionLoading || !status.has_client || !connected}
+                                        sx={{ 
+                                          minWidth: 50, 
+                                          height: 28, 
+                                          fontSize: '0.72rem', 
+                                          borderRadius: '6px',
+                                          boxShadow: 'none',
+                                          '&:hover': { bgcolor: '#10b981' }
+                                        }}
+                                      >
+                                        BUY
+                                      </Button>
+                                      <Button
+                                        variant="contained"
+                                        color="error"
+                                        size="small"
+                                        onClick={() => handleQuickTrade(sig.symbol, "SELL")}
+                                        disabled={actionLoading || !status.has_client || !connected}
+                                        sx={{ 
+                                          minWidth: 50, 
+                                          height: 28, 
+                                          fontSize: '0.72rem', 
+                                          borderRadius: '6px',
+                                          boxShadow: 'none',
+                                          '&:hover': { bgcolor: '#ea3943' }
+                                        }}
+                                      >
+                                        SELL
+                                      </Button>
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <TablePagination
+                    rowsPerPageOptions={[5, 10, 20, 50, 100]}
+                    component="div"
+                    count={filteredSignals.length}
+                    rowsPerPage={rowsPerPage}
+                    page={page}
+                    onPageChange={(_, newPage) => setPage(newPage)}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPage(parseInt(e.target.value, 10));
+                      setPage(0);
+                    }}
+                    sx={{
+                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      color: 'text.secondary',
+                      '.MuiTablePagination-selectIcon': {
+                        color: 'text.secondary'
+                      }
+                    }}
+                  />
+                </>
+              )}
+              {/* Tab 2: Inverse ETFs */}
+              {workspaceTab === 1 && (
+                <>
+                  <Box sx={{ px: 3, py: 2, bgcolor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
+                      📉 คู่ป้องกัน <span style={{ color: '#f43f5e', fontWeight: 700 }}>{etfData.length}</span> คู่ &mdash; สัญญาณกลับทิศ: หุ้นหลัก SELL = ETF ควร BUY
+                    </Typography>
+                  </Box>
+                  <TableContainer>
+                    <Table size="small">
+                      <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
+                        <TableRow>
+                          <TableCell sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '22%' }}>Inverse ETF / หุ้นหลัก</TableCell>
+                          <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '12%' }}>ราคา ETF</TableCell>
+                          <TableCell align="left" sx={{ pl: 4, fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '24%' }}>สัญญาณหุ้นหลัก (Indicators)</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27%' }}>แนะนำ ETF / สถานะพอร์ต</TableCell>
+                          <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {isSignalsLoading && etfData.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
+                                <CircularProgress size={24} color="secondary" />
+                                <Typography variant="body2" color="text.secondary">กำลังโหลดข้อมูลจับคู่และราคากองทุน Inverse ETF...</Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : etfData.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                              ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          etfData
+                            .slice(pageEtf * rowsPerPageEtf, pageEtf * rowsPerPageEtf + rowsPerPageEtf)
+                            .map((row) => {
+                            const hasPosition = row.owned_qty > 0;
+                            const isProfit = row.unrealized_pnl >= 0;
+                            const underlyingSig = signals.find(s => s.symbol === row.underlying);
+                            const smaScore = underlyingSig ? (underlyingSig.sma_signal === 'SELL' ? 1 : underlyingSig.sma_signal === 'BUY' ? -1 : 0) : 0;
+                            const rsiScore = underlyingSig ? (underlyingSig.rsi_signal === 'SELL' ? 1 : underlyingSig.rsi_signal === 'BUY' ? -1 : 0) : 0;
+                            const hybScore = underlyingSig ? (underlyingSig.hybrid_signal === 'SELL' ? 1 : underlyingSig.hybrid_signal === 'BUY' ? -1 : 0) : 0;
+                            const etfScore = smaScore + rsiScore + hybScore;
+                            
+                            const getEtfRecommendation = (score: number) => {
+                              if (score >= 2) return { label: "STRONG BUY", desc: "สัญญาณตกถนนซื้อแกร่ง", bgcolor: 'rgba(22, 199, 132, 0.15)', textcolor: '#16c784', border: '1px solid #16c784' };
+                              if (score === 1) return { label: "ACCUMULATE", desc: "ทยอยซื้อสะสม", bgcolor: 'rgba(22, 199, 132, 0.08)', textcolor: '#16c784', border: '1px dashed rgba(22, 199, 132, 0.5)' };
+                              if (score <= -2) return { label: "STRONG SELL", desc: "หุ้นหลักขาขึ้นแกร่ง ควรขาย ETF", bgcolor: 'rgba(234, 57, 67, 0.15)', textcolor: '#ea3943', border: '1px solid #ea3943' };
+                              if (score === -1) return { label: "REDUCE", desc: "ควรระบายออก", bgcolor: 'rgba(234, 57, 67, 0.08)', textcolor: '#ea3943', border: '1px dashed rgba(234, 57, 67, 0.5)' };
+                              return { label: "HOLD / NEUTRAL", desc: "ถือเงินสดหรือรอดูทิศทาง", bgcolor: 'rgba(148, 163, 184, 0.05)', textcolor: '#94a3b8', border: '1px solid rgba(148, 163, 184, 0.15)' };
                             };
                             
-                            const conf = getConfluenceSignal(sig.sma_signal, sig.rsi_signal, sig.hybrid_signal);
-                            
+                            const confData = getEtfRecommendation(etfScore);
+                            const pnlPct = hasPosition && row.avg_price > 0 ? (row.unrealized_pnl / (row.avg_price * row.owned_qty)) * 100 : null;
+
                             return (
-                              <TableRow key={sig.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                              <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
                                 <TableCell sx={{ py: 1.5 }}>
-                                  <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                    {sig.symbol}
+                                  <Typography sx={{ fontWeight: 800, color: 'secondary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                    {row.etf}
                                   </Typography>
                                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                    {STOCK_NAMES[sig.symbol] || (sig.symbol.endsWith('.HK') ? "Hong Kong Listed Company" : "US Listed Company")}
+                                    ค้ำประกันหุ้น: <span style={{ color: '#f1f5f9', fontWeight: 600 }}>{row.underlying}</span>
                                   </Typography>
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, py: 1.5 }}>
-                                  ${sig.price > 0 ? sig.price.toFixed(2) : "N/A"}
+                                  ${row.etf_price > 0 ? row.etf_price.toFixed(2) : "N/A"}
+                                  <Typography variant="caption" sx={{ fontSize: '0.68rem', display: 'block', color: 'text.secondary', mt: 0.1 }}>
+                                    หุ้นหลัก: ${row.underlying_price.toFixed(2)}
+                                  </Typography>
                                 </TableCell>
-                                <TableCell align="left" sx={{ py: 1.5, pl: 4 }}>
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
-                                    <Typography variant="body2" sx={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                      <span style={{ color: '#94a3b8', fontWeight: 600 }}>RSI (14):</span>
-                                      <span style={{ 
-                                        color: sig.rsi > 60 ? '#ea3943' : sig.rsi < 40 ? '#16c784' : '#94a3b8',
-                                        fontWeight: (sig.rsi > 60 || sig.rsi < 40) ? 700 : 500
-                                      }}>
-                                        {sig.rsi > 0 ? sig.rsi.toFixed(1) : "N/A"}
-                                      </span>
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                                      SMA(10/30): {sig.sma_fast > 0 ? `$${sig.sma_fast.toFixed(2)} / $${sig.sma_slow.toFixed(2)}` : "N/A"}
-                                    </Typography>
-                                  </Box>
+                                <TableCell align="left" sx={{ pl: 4, py: 1.5 }}>
+                                  {underlyingSig ? (
+                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
+                                      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
+                                        <Chip label={`SMA: ${underlyingSig.sma_signal}`} size="small" color={underlyingSig.sma_signal === 'SELL' ? 'error' : underlyingSig.sma_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
+                                        <Chip label={`RSI: ${underlyingSig.rsi_signal}`} size="small" color={underlyingSig.rsi_signal === 'SELL' ? 'error' : underlyingSig.rsi_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
+                                        <Chip label={`HYB: ${underlyingSig.hybrid_signal}`} size="small" color={underlyingSig.hybrid_signal === 'SELL' ? 'error' : underlyingSig.hybrid_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
+                                      </Box>
+                                      <Typography variant="caption" sx={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>
+                                        RSI {underlyingSig.rsi.toFixed(1)} &nbsp;|&nbsp; SMA {underlyingSig.sma_fast > 0 ? `${underlyingSig.sma_fast.toFixed(2)}` : 'N/A'}
+                                      </Typography>
+                                    </Box>
+                                  ) : (
+                                    <Typography variant="caption" sx={{ color: '#475569', fontStyle: 'italic' }}>ไม่มีข้อมูล — เพิ่ม {row.underlying} ใน Watchlist</Typography>
+                                  )}
                                 </TableCell>
                                 <TableCell align="center" sx={{ py: 1.5 }}>
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                                    <Box sx={{ 
-                                      display: 'inline-block',
-                                      px: 1.5,
-                                      py: 0.5,
-                                      borderRadius: '6px',
-                                      bgcolor: conf.bgcolor,
-                                      color: conf.textcolor,
-                                      border: conf.border,
-                                      fontWeight: 800,
-                                      fontSize: '0.75rem',
-                                      letterSpacing: '0.02em',
-                                      boxShadow: conf.label.includes("100%") 
-                                        ? `0 0 12px ${conf.textcolor}20` 
-                                        : 'none'
+                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
+                                    <Box sx={{
+                                      display: 'inline-block', px: 1.5, py: 0.5, borderRadius: '6px',
+                                      bgcolor: confData.bgcolor, color: confData.textcolor, border: confData.border,
+                                      fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.02em',
+                                      boxShadow: confData.label.includes('STRONG') ? `0 0 12px ${confData.textcolor}20` : 'none'
                                     }}>
-                                      {conf.label}
+                                      {confData.label}
                                     </Box>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', fontWeight: 500 }}>
-                                      {conf.desc}
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
+                                      {confData.desc}
                                     </Typography>
+                                    {hasPosition && (
+                                      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', justifyContent: 'center', mt: 0.2 }}>
+                                        <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.68rem' }} />
+                                        <Chip
+                                          label={`${isProfit ? '+' : ''}$${row.unrealized_pnl.toFixed(2)} (${pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%` : '-'})`}
+                                          size="small"
+                                          color={isProfit ? 'success' : 'error'}
+                                          sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}
+                                        />
+                                      </Box>
+                                    )}
                                   </Box>
                                 </TableCell>
                                 <TableCell align="center" sx={{ py: 1.5 }}>
                                   <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                    <Button
-                                      variant="contained"
-                                      color="success"
-                                      size="small"
-                                      onClick={() => handleQuickTrade(sig.symbol, "BUY")}
+                                    <Button variant="contained" color="success" size="small"
+                                      onClick={() => handleQuickTrade(row.etf, 'BUY', status.quantity)}
                                       disabled={actionLoading || !status.has_client || !connected}
-                                      sx={{ 
-                                        minWidth: 50, 
-                                        height: 28, 
-                                        fontSize: '0.72rem', 
-                                        borderRadius: '6px',
-                                        boxShadow: 'none',
-                                        '&:hover': { bgcolor: '#10b981' }
-                                      }}
-                                    >
-                                      BUY
-                                    </Button>
+                                      sx={{ minWidth: 50, height: 28, fontSize: '0.72rem', borderRadius: '6px', boxShadow: 'none', '&:hover': { bgcolor: '#10b981' } }}
+                                    >BUY</Button>
+                                    <Button variant="contained" color="error" size="small"
+                                      onClick={() => handleQuickTrade(row.etf, 'SELL', status.quantity)}
+                                      disabled={actionLoading || !status.has_client || !connected}
+                                      sx={{ minWidth: 50, height: 28, fontSize: '0.72rem', borderRadius: '6px', boxShadow: 'none', '&:hover': { bgcolor: '#ea3943' } }}
+                                    >SELL</Button>
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            );
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  <TablePagination
+                    rowsPerPageOptions={[5, 10, 20, 50, 100]}
+                    component="div"
+                    count={etfData.length}
+                    rowsPerPage={rowsPerPageEtf}
+                    page={pageEtf}
+                    onPageChange={(_, newPage) => setPageEtf(newPage)}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPageEtf(parseInt(e.target.value, 10));
+                      setPageEtf(0);
+                    }}
+                    sx={{
+                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      color: 'text.secondary',
+                      '.MuiTablePagination-selectIcon': {
+                        color: 'text.secondary'
+                      }
+                    }}
+                  />
+                </>
+              )}
+
+              {/* Tab 3: Active Positions */}
+              {workspaceTab === 2 && (
+                <>
+                  <TableContainer>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หุ้น (Ticker)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>จำนวนหุ้น (Shares)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ทุนเฉลี่ย (Avg Price)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>มูลค่าตลาด (Market Value)</TableCell>
+                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>กำไร / ขาดทุน (P&L)</TableCell>
+                        <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>แอ็กชัน (Action)</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(() => {
+                        const usPositions = positions.filter(pos => !pos.symbol.endsWith('.HK'));
+                        return usPositions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                              ไม่มีหุ้นถือครองอยู่ในพอร์ตโฟลิโอสำหรับตลาดนี้ขณะนี้
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          usPositions
+                            .slice(pagePos * rowsPerPagePos, pagePos * rowsPerPagePos + rowsPerPagePos)
+                            .map((pos) => {
+                              const posProfit = pos.unrealized_pnl >= 0;
+                              return (
+                                <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                                  <TableCell sx={{ py: 1.5 }}>
+                                    <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                      {pos.symbol}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
+                                      {STOCK_NAMES[pos.symbol] || "US Listed Company"}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.avg_price.toFixed(2)}</TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.market_value.toFixed(2)}</TableCell>
+                                  <TableCell align="right">
+                                    <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
+                                      <Typography 
+                                        sx={{ 
+                                          color: posProfit ? 'success.main' : 'error.main',
+                                          fontWeight: 700,
+                                          fontFamily: 'var(--font-mono)'
+                                        }}
+                                      >
+                                        {posProfit ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
+                                      </Typography>
+                                      <Chip 
+                                        label={pos.avg_price > 0 ? `${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0%"}
+                                        size="small"
+                                        color={posProfit ? "success" : "error"}
+                                        variant="outlined"
+                                        sx={{ height: 16, fontSize: '0.65rem', fontWeight: 600, px: 0.2 }}
+                                      />
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center">
                                     <Button
                                       variant="contained"
                                       color="error"
                                       size="small"
-                                      onClick={() => handleQuickTrade(sig.symbol, "SELL")}
+                                      onClick={() => handleQuickTrade(pos.symbol, "SELL", pos.qty)}
                                       disabled={actionLoading || !status.has_client || !connected}
                                       sx={{ 
-                                        minWidth: 50, 
+                                        minWidth: 60, 
                                         height: 28, 
                                         fontSize: '0.72rem', 
                                         borderRadius: '6px',
@@ -1110,243 +1608,44 @@ export default function StockUsHome() {
                                     >
                                       SELL
                                     </Button>
-                                  </Box>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
-                      )}
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                        );
+                      })()}
                     </TableBody>
                   </Table>
                 </TableContainer>
-              </CardContent>
-            </Card>
 
-            {/* Inverse ETF Shorting Mappings & Positions */}
-            <Card>
-              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(244, 63, 94, 0.06)', display: 'flex' }}>
-                      <TrendingDown size={18} color="#f43f5e" />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        สแกนเนอร์และพอร์ต Inverse ETF (Short ETFs)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        รายการจับคู่หุ้นปกติ (Underlying) และกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 700 }}>หุ้นหลัก (Underlying)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคาหุ้นหลัก</TableCell>
-                        <TableCell sx={{ fontWeight: 700 }}>Inverse ETF</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ราคา ETF</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>จำนวนที่ถือครอง</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>ทุนเฉลี่ย</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>มูลค่ารวม</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700 }}>กำไร / ขาดทุนสะสม</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 700 }}>ซื้อขายด่วน (Quick Trade)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {etfData.length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                            ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        etfData.map((row) => {
-                          const hasPosition = row.owned_qty > 0;
-                          const isProfit = row.unrealized_pnl >= 0;
-                          return (
-                            <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ fontWeight: 700, color: '#f1f5f9' }}>{row.underlying}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>
-                                ${row.underlying_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell sx={{ fontWeight: 700, color: 'secondary.main' }}>{row.etf}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', color: 'secondary.main', fontWeight: 600 }}>
-                                ${row.etf_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
-                                {hasPosition ? (
-                                  <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px' }} />
-                                ) : "-"}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>
-                                {hasPosition ? `$${row.avg_price.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700 }}>
-                                {hasPosition ? `$${row.market_value.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : "-"}
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: isProfit ? 'success.main' : 'error.main' }}>
-                                {hasPosition ? (
-                                  <>
-                                    {isProfit ? "+" : ""}${row.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                  </>
-                                ) : "-"}
-                              </TableCell>
-                              <TableCell align="center">
-                                <Box sx={{ display: "flex", gap: 1, justifyContent: "center" }}>
-                                  <Button
-                                    variant="contained"
-                                    color="success"
-                                    size="small"
-                                    onClick={() => handleQuickTrade(row.etf, "BUY", row.etf.endsWith('.HK') ? status.quantity_hk : status.quantity)}
-                                    disabled={actionLoading || !status.has_client || !connected}
-                                    sx={{ 
-                                      minWidth: 50, 
-                                      height: 28, 
-                                      fontSize: '0.72rem', 
-                                      borderRadius: '6px',
-                                      boxShadow: 'none',
-                                      '&:hover': { bgcolor: '#10b981' }
-                                    }}
-                                  >
-                                    BUY
-                                  </Button>
-                                  <Button
-                                    variant="contained"
-                                    color="error"
-                                    size="small"
-                                    onClick={() => handleQuickTrade(row.etf, "SELL", row.etf.endsWith('.HK') ? status.quantity_hk : status.quantity)}
-                                    disabled={actionLoading || !status.has_client || !connected}
-                                    sx={{ 
-                                      minWidth: 50, 
-                                      height: 28, 
-                                      fontSize: '0.72rem', 
-                                      borderRadius: '6px',
-                                      boxShadow: 'none',
-                                      '&:hover': { bgcolor: '#ea3943' }
-                                    }}
-                                  >
-                                    SELL
-                                  </Button>
-                                </Box>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
-
-            {/* Positions Table */}
-            <Card>
-              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-                <Box sx={{ p: 3, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                  <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                    <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.06)', display: 'flex' }}>
-                      <Activity size={18} color="#3b82f6" />
-                    </Box>
-                    <Box>
-                      <Typography variant="h6" sx={{ fontWeight: 700 }}>
-                        หุ้นในพอร์ต (Active Positions)
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้
-                      </Typography>
-                    </Box>
-                  </Box>
-                </Box>
-                
-                <TableContainer>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>หุ้น (Ticker)</TableCell>
-                        <TableCell align="right">จำนวนหุ้น (Shares)</TableCell>
-                        <TableCell align="right">ทุนเฉลี่ย (Avg Price)</TableCell>
-                        <TableCell align="right">มูลค่าตลาด (Market Value)</TableCell>
-                        <TableCell align="right">กำไร / ขาดทุน (P&L)</TableCell>
-                        <TableCell align="center">แอ็กชัน (Action)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {positions.filter(pos => !pos.symbol.endsWith('.HK')).length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                            ไม่มีหุ้นถือครองอยู่ในพอร์ตโฟลิโอสำหรับตลาดนี้ขณะนี้
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        positions
-                          .filter(pos => !pos.symbol.endsWith('.HK'))
-                          .map((pos) => {
-                          const posProfit = pos.unrealized_pnl >= 0;
-                          return (
-                            <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ py: 1.5 }}>
-                                <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                  {pos.symbol}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                  {STOCK_NAMES[pos.symbol] || (pos.symbol.endsWith('.HK') ? "Hong Kong Listed Company" : "US Listed Company")}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.avg_price.toFixed(2)}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)' }}>${pos.market_value.toFixed(2)}</TableCell>
-                              <TableCell align="right">
-                                <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
-                                  <Typography 
-                                    sx={{ 
-                                      color: posProfit ? 'success.main' : 'error.main',
-                                      fontWeight: 700,
-                                      fontFamily: 'var(--font-mono)'
-                                    }}
-                                  >
-                                    {posProfit ? "+" : ""}${pos.unrealized_pnl.toFixed(2)}
-                                  </Typography>
-                                  <Chip 
-                                    label={pos.avg_price > 0 ? `${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0%"}
-                                    size="small"
-                                    color={posProfit ? "success" : "error"}
-                                    variant="outlined"
-                                    sx={{ height: 16, fontSize: '0.65rem', fontWeight: 600, px: 0.2 }}
-                                  />
-                                </Box>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Button
-                                  variant="contained"
-                                  color="error"
-                                  size="small"
-                                  onClick={() => handleQuickTrade(pos.symbol, "SELL", pos.qty)}
-                                  disabled={actionLoading || !status.has_client || !connected}
-                                  sx={{ 
-                                    minWidth: 60, 
-                                    height: 28, 
-                                    fontSize: '0.72rem', 
-                                    borderRadius: '6px',
-                                    boxShadow: 'none',
-                                    '&:hover': { bgcolor: '#ea3943' }
-                                  }}
-                                >
-                                  SELL
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </CardContent>
-            </Card>
+                {(() => {
+                  const usPositions = positions.filter(pos => !pos.symbol.endsWith('.HK'));
+                  return usPositions.length > 0 && (
+                    <TablePagination
+                      rowsPerPageOptions={[5, 10, 20, 50, 100]}
+                      component="div"
+                      count={usPositions.length}
+                      rowsPerPage={rowsPerPagePos}
+                      page={pagePos}
+                      onPageChange={(_, newPage) => setPagePos(newPage)}
+                      onRowsPerPageChange={(e) => {
+                        setRowsPerPagePos(parseInt(e.target.value, 10));
+                        setPagePos(0);
+                      }}
+                      sx={{
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                        color: 'text.secondary',
+                        '.MuiTablePagination-selectIcon': {
+                          color: 'text.secondary'
+                        }
+                      }}
+                    />
+                  );
+                })()}
+                </>
+              )}
+            </CardContent>
+          </Card>
         </Box>
 
         {/* Quick Trade Dialog */}
@@ -1360,7 +1659,459 @@ export default function StockUsHome() {
           onCancel={() => setTradeDialogOpen(false)}
           mode="cash"
         />
-        
+
+        {/* Watchlist Drawer */}
+        <Drawer
+          anchor="right"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+        >
+          <Box
+            sx={{
+              width: { xs: '100vw', sm: 500 },
+              height: '100%',
+              bgcolor: '#0f141c',
+              borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+              p: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Drawer Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <ListPlus size={20} color="#3b82f6" />
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  จัดการรายการหุ้นสหรัฐฯ
+                </Typography>
+              </Box>
+              <IconButton onClick={() => setDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
+                <X size={18} />
+              </IconButton>
+            </Box>
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
+
+            {/* Section 1: Add New Ticker */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                ➕ เพิ่มหุ้นตัวใหม่ (Add Ticker)
+              </Typography>
+              <Box 
+                component="form" 
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  handleAddSymbol(newSymbolInput);
+                }}
+                sx={{ display: 'flex', gap: 1 }}
+              >
+                <TextField
+                  size="small"
+                  fullWidth
+                  placeholder="เช่น AAPL หรือ TSLA"
+                  value={newSymbolInput}
+                  onChange={(e) => setNewSymbolInput(e.target.value)}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '8px',
+                      bgcolor: 'rgba(255,255,255,0.02)'
+                    }
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  color="primary"
+                  type="submit"
+                  sx={{ borderRadius: '8px', minWidth: 60 }}
+                >
+                  เพิ่ม
+                </Button>
+              </Box>
+            </Box>
+
+            {/* Section 2: Recommended Stocks */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                  ⭐ หุ้นสหรัฐฯ แนะนำ (Recommended)
+                </Typography>
+                <Button
+                  size="small"
+                  variant="text"
+                  color="primary"
+                  onClick={handleMonitorAllRecommended}
+                  disabled={actionLoading}
+                  sx={{ 
+                    fontSize: '0.72rem', 
+                    py: 0, 
+                    fontWeight: 700,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5
+                  }}
+                >
+                  {actionLoading ? (
+                    <>
+                      <CircularProgress size={12} sx={{ color: 'primary.main' }} />
+                      กำลังดำเนินการ...
+                    </>
+                  ) : (
+                    "เพิ่มทั้งหมด 20 ตัว"
+                  )}
+                </Button>
+              </Box>
+              <Typography variant="caption" color="text.secondary">คลิกเลือกทีละตัวด้านล่าง หรือกด "เพิ่มทั้งหมด 20 ตัว" เพื่อเพิ่มหุ้นยอดนิยมในพอร์ตบอท</Typography>
+              <Box sx={{ 
+                maxHeight: 120, 
+                overflowY: 'auto', 
+                display: 'flex', 
+                gap: 0.8, 
+                flexWrap: 'wrap', 
+                p: 1, 
+                bgcolor: 'rgba(255,255,255,0.01)', 
+                borderRadius: '8px',
+                border: '1px solid rgba(255,255,255,0.04)'
+              }}>
+                {[
+                  "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
+                  "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
+                ]
+                  .filter(sym => !drawerUsSymbols.includes(sym))
+                  .map((sym) => (
+                    <Chip
+                      key={sym}
+                      label={`${sym} (${STOCK_NAMES[sym]?.split(' ')[0] || ''})`}
+                      size="small"
+                      onClick={() => handleAddSymbol(sym)}
+                      icon={<Plus size={12} />}
+                      clickable
+                      sx={{ 
+                        bgcolor: 'rgba(59, 130, 246, 0.08)',
+                        color: '#3b82f6',
+                        border: '1px solid rgba(59, 130, 246, 0.15)',
+                        fontSize: '0.7rem',
+                        '&:hover': {
+                          bgcolor: 'rgba(59, 130, 246, 0.15)',
+                        }
+                      }}
+                    />
+                  ))}
+                {[
+                  "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
+                  "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
+                ].filter(sym => !drawerUsSymbols.includes(sym)).length === 0 && (
+                  <Typography variant="caption" color="text.secondary">เพิ่มหุ้นแนะนำครบทั้งหมดแล้ว</Typography>
+                )}
+              </Box>
+            </Box>
+
+            {/* Section 3: Current Watchlist List */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, overflow: 'hidden' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                <span>📋 รายการหุ้นสแกนปัจจุบัน ({drawerUsSymbols.length} ตัว)</span>
+                {drawerUsSymbols.length > 0 && (
+                  <Button 
+                    size="small" 
+                    color="error" 
+                    variant="text" 
+                    onClick={() => setConfirmClearOpen(true)}
+                    sx={{ fontSize: '0.68rem', py: 0 }}
+                  >
+                    ล้างทั้งหมด
+                  </Button>
+                )}
+              </Typography>
+              <Box sx={{ 
+                flex: 1, 
+                overflowY: 'auto', 
+                border: '1px solid rgba(255,255,255,0.05)', 
+                borderRadius: '8px',
+                bgcolor: 'rgba(255,255,255,0.01)'
+              }}>
+                {drawerUsSymbols.length === 0 ? (
+                  <Box sx={{ p: 3, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">ไม่มีรายการหุ้นในรายการสแกนขณะนี้</Typography>
+                  </Box>
+                ) : (
+                  <List dense disablePadding>
+                    {drawerUsSymbols.map((sym) => (
+                      <ListItem 
+                        key={sym} 
+                        divider 
+                        sx={{ 
+                          py: 1,
+                          px: 2,
+                          borderColor: 'rgba(255, 255, 255, 0.04)',
+                          '&:last-child': { borderBottom: 'none' }
+                        }}
+                      >
+                        <ListItemText
+                          primary={
+                            <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'primary.main' }}>
+                              {sym}
+                            </Typography>
+                          }
+                          secondary={
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', display: 'block', mt: 0.2 }}>
+                              {STOCK_NAMES[sym] || "US Listed Company"}
+                            </Typography>
+                          }
+                        />
+                        <ListItemSecondaryAction>
+                          <IconButton 
+                            edge="end" 
+                            size="small" 
+                            color="error" 
+                            onClick={() => handleRemoveSymbol(sym)}
+                            sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                          >
+                            <Trash2 size={16} />
+                          </IconButton>
+                        </ListItemSecondaryAction>
+                      </ListItem>
+                    ))}
+                  </List>
+                )}
+              </Box>
+            </Box>
+
+            {/* Drawer Bottom Actions */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+              <Button
+                variant="contained"
+                color="primary"
+                fullWidth
+                onClick={handleSaveDrawerConfig}
+                disabled={actionLoading}
+                sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
+              >
+                {actionLoading ? <RefreshCw className="spin" size={18} /> : "บันทึก & รีโหลดบอท (Save & Hot-Reload)"}
+              </Button>
+              <Typography variant="caption" color="text.secondary" align="center">
+                * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
+              </Typography>
+            </Box>
+          </Box>
+        </Drawer>
+
+        {/* US Settings Drawer */}
+        <Drawer
+          anchor="right"
+          open={settingsDrawerOpen}
+          onClose={() => setSettingsDrawerOpen(false)}
+        >
+          <Box
+            sx={{
+              width: { xs: '100vw', sm: 500 },
+              height: '100%',
+              bgcolor: '#0f141c',
+              borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+              p: 3,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 3,
+              boxSizing: 'border-box'
+            }}
+          >
+            {/* Drawer Header */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Settings size={20} color="#6366f1" />
+                <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                  ตั้งค่าบอทเทรดสหรัฐฯ (US Settings)
+                </Typography>
+              </Box>
+              <IconButton onClick={() => setSettingsDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
+                <X size={18} />
+              </IconButton>
+            </Box>
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
+
+            {/* Settings Form */}
+            <form onSubmit={handleSaveUsSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1, pr: 1 }}>
+                
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -1.5 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                    ⚙️ การตั้งค่าการจำกัดความเสี่ยง (USD Budget)
+                  </Typography>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="secondary"
+                    onClick={handleLoadUsBudgetDefaults}
+                    sx={{ 
+                      fontSize: '0.72rem', 
+                      py: 0.2, 
+                      px: 1.2, 
+                      borderRadius: '6px',
+                      borderColor: 'rgba(99, 102, 241, 0.4)',
+                      color: '#a5b4fc',
+                      '&:hover': {
+                        borderColor: '#6366f1',
+                        bgcolor: 'rgba(99, 102, 241, 0.05)'
+                      }
+                    }}
+                  >
+                    แนะนำสำหรับงบ $300
+                  </Button>
+                </Box>
+
+                <TextField 
+                  fullWidth
+                  size="small"
+                  label="งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)"
+                  type="number"
+                  value={formQty}
+                  onChange={(e) => setFormQty(Math.max(1, parseInt(e.target.value) || 1))}
+                  slotProps={{ 
+                    htmlInput: { min: 1, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormQty(prev => Math.max(1, prev - 1))}
+                            disabled={actionLoading || formQty <= 1}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormQty(prev => prev + 1)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                  required
+                  disabled={actionLoading}
+                />
+
+                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
+
+                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
+                  📊 ตั้งค่าแท่งเทียนและกลยุทธ์ (Strategy & Timeframe)
+                </Typography>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>กลยุทธ์ส่งสัญญาณ (Strategy)</InputLabel>
+                  <Select
+                    value={formStrategy}
+                    label="กลยุทธ์ส่งสัญญาณ (Strategy)"
+                    onChange={(e) => setFormStrategy(e.target.value)}
+                    disabled={actionLoading}
+                    sx={{ borderRadius: '8px' }}
+                  >
+                    <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
+                    <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
+                    <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <FormControl fullWidth size="small">
+                  <InputLabel>ช่วงเวลาแท่งเทียน (Candle Period)</InputLabel>
+                  <Select
+                    value={formPeriod}
+                    label="ช่วงเวลาแท่งเทียน (Candle Period)"
+                    onChange={(e) => setFormPeriod(e.target.value)}
+                    disabled={actionLoading}
+                    sx={{ borderRadius: '8px' }}
+                  >
+                    <MenuItem value="m1">1 นาที (1m)</MenuItem>
+                    <MenuItem value="m5">5 นาที (5m)</MenuItem>
+                    <MenuItem value="m15">15 นาที (15m)</MenuItem>
+                    <MenuItem value="m30">30 นาที (30m)</MenuItem>
+                    <MenuItem value="h1">1 ชั่วโมง (1h)</MenuItem>
+                    <MenuItem value="d">1 วัน (1d)</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField 
+                  fullWidth
+                  size="small"
+                  label="ความถี่ในการอัปเดตสแกนของบอท (หน่วยวินาที)"
+                  type="number"
+                  value={formInterval}
+                  onChange={(e) => setFormInterval(Math.max(10, parseInt(e.target.value) || 60))}
+                  slotProps={{ 
+                    htmlInput: { min: 10, step: 5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormInterval(prev => Math.max(10, prev - 5))}
+                            disabled={actionLoading || formInterval <= 10}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormInterval(prev => prev + 5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                  required
+                  disabled={actionLoading}
+                />
+              </Box>
+
+              {/* Drawer Bottom Actions */}
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  type="submit"
+                  fullWidth
+                  disabled={actionLoading}
+                  sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
+                >
+                  {actionLoading ? <RefreshCw className="spin" size={18} /> : "บันทึก & รีโหลดบอท (Save & Hot-Reload)"}
+                </Button>
+                <Typography variant="caption" color="text.secondary" align="center">
+                  * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
+                </Typography>
+              </Box>
+            </form>
+          </Box>
+        </Drawer>
+
+        {/* Confirm Clear Watchlist Dialog */}
+        <ConfirmDialog
+          open={confirmClearOpen}
+          title="ยืนยันการล้างรายการสแกน?"
+          message="คุณต้องการลบรายชื่อหุ้นทั้งหมดในรายการสแกนนี้ใช่หรือไม่?"
+          confirmText="ใช่, ล้างทั้งหมด"
+          cancelText="ยกเลิก"
+          severity="warning"
+          loading={clearPending}
+          onConfirm={handleClearAllSymbols}
+          onCancel={() => setConfirmClearOpen(false)}
+        />
     </>
   );
 }

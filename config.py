@@ -38,8 +38,22 @@ class Config:
         "TSLA": "TSLQ",        # 1x Short Tesla
         "NVDA": "NVDS",        # 1.25x Short Nvidia
         "MSFT": "MSFD",        # 1.5x Short Microsoft
+        "AMZN": "AMZD",        # 1x Short Amazon
+        "GOOGL": "GGLD",       # 1x Short Google
+        "META": "METD",        # 1x Short Meta
+        "NFLX": "NFLD",        # 1x Short Netflix
+        "AMD": "AMDS",         # 1x Short AMD
+        "AVGO": "AVGD",        # 1x Short Broadcom
         "QQQ": "SQQQ",         # 3x Short Nasdaq-100
         "SPY": "SPXS",         # 3x Short S&P 500
+        "SMH": "SOXS",         # 3x Short Semiconductors
+        "SOXX": "SOXS",        # 3x Short Semiconductors
+        "ARKK": "SARK",        # 1x Short ARK Innovation
+        "IWM": "TZA",          # 3x Short Russell 2000
+        "XLF": "FAZ",          # 3x Short Financials
+        "XLE": "ERY",          # 2x Short Energy
+        "GDX": "DUST",         # 2x Short Gold Miners
+        "DIA": "SDOW",         # 3x Short Dow Jones
         "0700.HK": "7500.HK",  # Hedge Tencent via Short Hang Seng Index
         "9988.HK": "7500.HK",  # Hedge Alibaba via Short Hang Seng Index
         "1810.HK": "7552.HK",  # Hedge Xiaomi via Short Hang Seng Tech Index

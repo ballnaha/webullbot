@@ -342,6 +342,10 @@ export default function HongkongHome() {
   const [page, setPage] = useState(0);
   const [workspaceTab, setWorkspaceTab] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10); // Default to 10 rows for optimal visual balance
+  const [pageEtf, setPageEtf] = useState(0);
+  const [rowsPerPageEtf, setRowsPerPageEtf] = useState(10);
+  const [pagePos, setPagePos] = useState(0);
+  const [rowsPerPagePos, setRowsPerPagePos] = useState(10);
   const [maxPrice, setMaxPrice] = useState<string>(""); 
   const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); 
   
@@ -1544,14 +1548,25 @@ export default function HongkongHome() {
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {etfData.length === 0 ? (
+                        {isSignalsLoading && etfData.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
+                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
+                                <CircularProgress size={24} color="secondary" />
+                                <Typography variant="body2" color="text.secondary">กำลังโหลดข้อมูลจับคู่และราคากองทุน Inverse ETF...</Typography>
+                              </Box>
+                            </TableCell>
+                          </TableRow>
+                        ) : etfData.length === 0 ? (
                           <TableRow>
                             <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
                               ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
                             </TableCell>
                           </TableRow>
                         ) : (
-                          etfData.map((row) => {
+                          etfData
+                            .slice(pageEtf * rowsPerPageEtf, pageEtf * rowsPerPageEtf + rowsPerPageEtf)
+                            .map((row) => {
                             const hasPosition = row.owned_qty > 0;
                             const isProfit = row.unrealized_pnl >= 0;
                             const underlyingSig = signals.find(s => s.symbol === row.underlying);
@@ -1581,7 +1596,7 @@ export default function HongkongHome() {
                                   <Typography sx={{ fontWeight: 800, color: 'secondary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
                                     {row.etf}
                                   </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', display: 'block', mt: 0.2 }}>
+                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7' + 'rem', display: 'block', mt: 0.2 }}>
                                     {STOCK_NAMES[row.etf] || 'Inverse Hedge ETF'}
                                   </Typography>
                                   <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.4, px: 0.8, py: 0.2, bgcolor: 'rgba(59,130,246,0.07)', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.15)' }}>
@@ -1663,12 +1678,33 @@ export default function HongkongHome() {
                       </TableBody>
                     </Table>
                   </TableContainer>
+
+                  <TablePagination
+                    rowsPerPageOptions={[5, 10, 20, 50, 100]}
+                    component="div"
+                    count={etfData.length}
+                    rowsPerPage={rowsPerPageEtf}
+                    page={pageEtf}
+                    onPageChange={(_, newPage) => setPageEtf(newPage)}
+                    onRowsPerPageChange={(e) => {
+                      setRowsPerPageEtf(parseInt(e.target.value, 10));
+                      setPageEtf(0);
+                    }}
+                    sx={{
+                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                      color: 'text.secondary',
+                      '.MuiTablePagination-selectIcon': {
+                        color: 'text.secondary'
+                      }
+                    }}
+                  />
                 </>
               )}
 
               {/* Tab 3: Active Positions */}
               {workspaceTab === 2 && (
-                <TableContainer>
+                <>
+                  <TableContainer>
                   <Table size="small">
                     <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
                       <TableRow>
@@ -1681,75 +1717,104 @@ export default function HongkongHome() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {positions.filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK')).length === 0 ? (
-                        <TableRow>
-                          <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                            ไม่มีหุ้นถือครองอยู่ในพอร์ตโฟลิโอสำหรับตลาดนี้ขณะนี้
-                          </TableCell>
-                        </TableRow>
-                      ) : (
-                        positions
-                          .filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK'))
-                          .map((pos) => {
-                          const posProfit = pos.unrealized_pnl >= 0;
-                          return (
-                            <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ py: 1.5 }}>
-                                <Typography sx={{ fontWeight: 800, color: ["7500.HK", "7552.HK"].includes(pos.symbol) ? 'secondary.main' : 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                  {pos.symbol}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                   {STOCK_NAMES[pos.symbol] || (["7500.HK", "7552.HK"].includes(pos.symbol) ? "Inverse Hedge ETF" : "Hong Kong Listed Company")}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
-                              <TableCell align="right">
-                                <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
-                                  <Typography 
-                                    sx={{ 
-                                      color: posProfit ? 'success.main' : 'error.main',
-                                      fontWeight: 700,
-                                      fontFamily: 'var(--font-mono)'
-                                    }}
-                                  >
-                                    {posProfit ? "+" : ""}HK$ {pos.unrealized_pnl.toFixed(2)}
-                                  </Typography>
-                                  <Chip 
-                                    label={pos.avg_price > 0 ? `${posProfit ? "+" : ""}${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0.00%"}
-                                    size="small"
-                                    color={posProfit ? "success" : "error"}
-                                    sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.7rem' }}
-                                  />
-                                </Box>
-                              </TableCell>
-                              <TableCell align="center">
-                                <Button
-                                  variant="contained"
-                                  color="error"
-                                  size="small"
-                                  onClick={() => handleQuickTrade(pos.symbol, "SELL", pos.qty)}
-                                  disabled={actionLoading || !status.has_client || !connected}
-                                  sx={{ 
-                                    minWidth: 60, 
-                                    height: 28, 
-                                    fontSize: '0.72rem', 
-                                    borderRadius: '6px',
-                                    boxShadow: 'none',
-                                    '&:hover': { bgcolor: '#ea3943' }
-                                  }}
-                                >
-                                  SELL
-                                </Button>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                      )}
+                      {(() => {
+                        const hkPositions = positions.filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK'));
+                        return hkPositions.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
+                              ไม่มีหุ้นถือครองอยู่ในพอร์ตโฟลิโอสำหรับตลาดนี้ขณะนี้
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          hkPositions
+                            .slice(pagePos * rowsPerPagePos, pagePos * rowsPerPagePos + rowsPerPagePos)
+                            .map((pos) => {
+                              const posProfit = pos.unrealized_pnl >= 0;
+                              return (
+                                <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
+                                  <TableCell sx={{ py: 1.5 }}>
+                                    <Typography sx={{ fontWeight: 800, color: ["7500.HK", "7552.HK"].includes(pos.symbol) ? 'secondary.main' : 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
+                                      {pos.symbol}
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
+                                       {STOCK_NAMES[pos.symbol] || (["7500.HK", "7552.HK"].includes(pos.symbol) ? "Inverse Hedge ETF" : "Hong Kong Listed Company")}
+                                    </Typography>
+                                  </TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
+                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
+                                  <TableCell align="right">
+                                    <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
+                                      <Typography 
+                                        sx={{ 
+                                          color: posProfit ? 'success.main' : 'error.main',
+                                          fontWeight: 700,
+                                          fontFamily: 'var(--font-mono)'
+                                        }}
+                                      >
+                                        {posProfit ? "+" : ""}HK$ {pos.unrealized_pnl.toFixed(2)}
+                                      </Typography>
+                                      <Chip 
+                                        label={pos.avg_price > 0 ? `${posProfit ? "+" : ""}${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0.00%"}
+                                        size="small"
+                                        color={posProfit ? "success" : "error"}
+                                        sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.7rem' }}
+                                      />
+                                    </Box>
+                                  </TableCell>
+                                  <TableCell align="center">
+                                    <Button
+                                      variant="contained"
+                                      color="error"
+                                      size="small"
+                                      onClick={() => handleQuickTrade(pos.symbol, "SELL", pos.qty)}
+                                      disabled={actionLoading || !status.has_client || !connected}
+                                      sx={{ 
+                                        minWidth: 60, 
+                                        height: 28, 
+                                        fontSize: '0.72rem', 
+                                        borderRadius: '6px',
+                                        boxShadow: 'none',
+                                        '&:hover': { bgcolor: '#ea3943' }
+                                      }}
+                                    >
+                                      SELL
+                                    </Button>
+                                  </TableCell>
+                                </TableRow>
+                              );
+                            })
+                        );
+                      })()}
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                {(() => {
+                  const hkPositions = positions.filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK'));
+                  return hkPositions.length > 0 && (
+                    <TablePagination
+                      rowsPerPageOptions={[5, 10, 20, 50, 100]}
+                      component="div"
+                      count={hkPositions.length}
+                      rowsPerPage={rowsPerPagePos}
+                      page={pagePos}
+                      onPageChange={(_, newPage) => setPagePos(newPage)}
+                      onRowsPerPageChange={(e) => {
+                        setRowsPerPagePos(parseInt(e.target.value, 10));
+                        setPagePos(0);
+                      }}
+                      sx={{
+                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+                        color: 'text.secondary',
+                        '.MuiTablePagination-selectIcon': {
+                          color: 'text.secondary'
+                        }
+                      }}
+                    />
+                  );
+                })()}
+                </>
               )}
             </CardContent>
           </Card>

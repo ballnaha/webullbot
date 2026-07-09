@@ -1,8 +1,8 @@
 {
     "balance": {
-        "cash": 500.0,
+        "cash": 100.0,
         "currency": "USD",
-        "cash_hkd": 3900.0
+        "cash_hkd": 780.0
     },
     "positions": {
         "0003.HK": {
