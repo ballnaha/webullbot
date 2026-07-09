@@ -209,9 +209,11 @@ class LocalPaperTradingClient(BaseTradingClient):
             
             # Deduct cash
             if is_hk:
-                self.portfolio["balance"]["cash_hkd"] = cash - total_cost
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd - total_cost
+                self.portfolio["balance"]["cash"] = cash_usd - (total_cost / 7.8)
             else:
-                self.portfolio["balance"]["cash"] = cash - total_cost
+                self.portfolio["balance"]["cash"] = cash_usd - total_cost
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd - (total_cost * 7.8)
             
             # Update position
             pos = self.portfolio["positions"].get(symbol, {"qty": 0, "avg_price": 0.0})
@@ -237,8 +239,10 @@ class LocalPaperTradingClient(BaseTradingClient):
             # Add to cash
             if is_hk:
                 self.portfolio["balance"]["cash_hkd"] = cash_hkd + total_cost
+                self.portfolio["balance"]["cash"] = cash_usd + (total_cost / 7.8)
             else:
                 self.portfolio["balance"]["cash"] = cash_usd + total_cost
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd + (total_cost * 7.8)
             
             # Update position
             pos["qty"] -= qty
