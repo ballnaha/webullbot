@@ -16,6 +16,7 @@ class WebullOfficialClient(BaseTradingClient):
         self.api_client = None
         self.trade_client = None
         self.account_id = None
+        self.bars_cache = {}
         self._init_sdk()
 
     def _init_sdk(self):
@@ -120,21 +121,48 @@ class WebullOfficialClient(BaseTradingClient):
             "m1": "1m", "m5": "5m", "m15": "15m", "m30": "30m", "h1": "1h", "d": "1d"
         }
         yf_interval = mapping.get(interval.lower(), "5m")
+        
+        # Caching logic to prevent yfinance rate limits
+        import time
+        cache_key = (symbol, yf_interval)
+        lifetimes = {
+            "1m": 30,
+            "5m": 120,
+            "15m": 300,
+            "30m": 600,
+            "1h": 1200,
+            "1d": 14400
+        }
+        lifetime = lifetimes.get(yf_interval, 120)
+        
+        if cache_key in self.bars_cache:
+            cache_time, cached_df = self.bars_cache[cache_key]
+            if time.time() - cache_time < lifetime:
+                return cached_df
+                
         period = "5d" if "m" in interval else "6mo"
         
         try:
             ticker = yf.Ticker(symbol)
             df = ticker.history(period=period, interval=yf_interval)
             if df.empty:
+                if cache_key in self.bars_cache:
+                    return self.bars_cache[cache_key][1]
                 return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
                 
             df = df.rename(columns={
                 'Open': 'open', 'High': 'high', 'Low': 'low', 'Close': 'close', 'Volume': 'volume'
             })
             df = df[['open', 'high', 'low', 'close', 'volume']].tail(limit)
+            
+            # Save to cache
+            self.bars_cache[cache_key] = (time.time(), df)
             return df
         except Exception as e:
             print(f"Error retrieving market data (yfinance fallback) for {symbol}: {e}")
+            if cache_key in self.bars_cache:
+                print(f"Returning stale cached data for {symbol} due to rate limiting/error.")
+                return self.bars_cache[cache_key][1]
             return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
 
     def place_order(self, symbol: str, qty: int, action: str, order_type: str = "MKT", price: float = None) -> dict:
