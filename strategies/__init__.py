@@ -2,6 +2,8 @@ from strategies.sma_crossover import SMACrossoverStrategy
 from strategies.rsi_strategy import RSIStrategy
 from strategies.hybrid_strategy import SmaRsiHybridStrategy
 from strategies.volume_ema_breakout import VolumeEmaBreakoutStrategy
+from strategies.regime_adaptive import RegimeAdaptiveStrategy
+from strategies.short_regime import ShortRegimeStrategy
 
 def get_strategy(strategy_name: str = "sma", **kwargs):
     """
@@ -33,6 +35,31 @@ def get_strategy(strategy_name: str = "sma", **kwargs):
         vol = int(kwargs.get("vol_period", 20))
         factor = float(kwargs.get("vol_factor", 2.5))
         return VolumeEmaBreakoutStrategy(fast_period=fast, slow_period=slow, vol_period=vol, vol_factor=factor)
+
+    elif name == "regime_adaptive":
+        return RegimeAdaptiveStrategy(
+            fast_period=int(kwargs.get("fast_period", 20)),
+            slow_period=int(kwargs.get("slow_period", 50)),
+            rsi_period=int(kwargs.get("rsi_period", 14)),
+            rsi_entry=float(kwargs.get("rsi_entry", 45.0)),
+            rsi_exit=float(kwargs.get("rsi_exit", 40.0)),
+            rsi_ceiling=float(kwargs.get("rsi_ceiling", 68.0)),
+            atr_period=int(kwargs.get("atr_period", 14)),
+            min_atr_pct=float(kwargs.get("min_atr_pct", 0.25)),
+            max_atr_pct=float(kwargs.get("max_atr_pct", 8.0)),
+        )
+
+    elif name == "short_regime":
+        return ShortRegimeStrategy(
+            fast_period=int(kwargs.get("fast_period", 20)),
+            slow_period=int(kwargs.get("slow_period", 50)),
+            rsi_period=int(kwargs.get("rsi_period", 14)),
+            rsi_entry=float(kwargs.get("rsi_entry", 55.0)),
+            rsi_cover=float(kwargs.get("rsi_cover", 60.0)),
+            atr_period=int(kwargs.get("atr_period", 14)),
+            min_atr_pct=float(kwargs.get("min_atr_pct", 0.25)),
+            max_atr_pct=float(kwargs.get("max_atr_pct", 8.0)),
+        )
 
     else:
         raise ValueError(f"Unsupported strategy name: {strategy_name}")

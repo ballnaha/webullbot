@@ -1,0 +1,226 @@
+[
+  {
+    "label": "SMA 20/100",
+    "strategy": "sma",
+    "params": {
+      "fast_period": 20,
+      "slow_period": 100
+    },
+    "train_mean_return_pct": 114.87,
+    "train_mean_drawdown_pct": -29.66,
+    "test_mean_return_pct": 47.45,
+    "test_median_return_pct": -1.47,
+    "test_mean_drawdown_pct": -18.97,
+    "test_profitable_symbols": 5,
+    "test_symbols": 10,
+    "train_score": 85.21000000000001
+  },
+  {
+    "label": "SMA 5/20",
+    "strategy": "sma",
+    "params": {
+      "fast_period": 5,
+      "slow_period": 20
+    },
+    "train_mean_return_pct": 68.73,
+    "train_mean_drawdown_pct": -41.61,
+    "test_mean_return_pct": 62.72,
+    "test_median_return_pct": 2.88,
+    "test_mean_drawdown_pct": -25.75,
+    "test_profitable_symbols": 6,
+    "test_symbols": 10,
+    "train_score": 27.120000000000005
+  },
+  {
+    "label": "SMA 10/30",
+    "strategy": "sma",
+    "params": {
+      "fast_period": 10,
+      "slow_period": 30
+    },
+    "train_mean_return_pct": 55.46,
+    "train_mean_drawdown_pct": -36.49,
+    "test_mean_return_pct": 50.71,
+    "test_median_return_pct": 23.19,
+    "test_mean_drawdown_pct": -24.35,
+    "test_profitable_symbols": 6,
+    "test_symbols": 10,
+    "train_score": 18.97
+  },
+  {
+    "label": "SMA 10/50",
+    "strategy": "sma",
+    "params": {
+      "fast_period": 10,
+      "slow_period": 50
+    },
+    "train_mean_return_pct": 51.6,
+    "train_mean_drawdown_pct": -37.9,
+    "test_mean_return_pct": 50.26,
+    "test_median_return_pct": 23.18,
+    "test_mean_drawdown_pct": -24.31,
+    "test_profitable_symbols": 7,
+    "test_symbols": 10,
+    "train_score": 13.700000000000003
+  },
+  {
+    "label": "SMA 20/50",
+    "strategy": "sma",
+    "params": {
+      "fast_period": 20,
+      "slow_period": 50
+    },
+    "train_mean_return_pct": 48.65,
+    "train_mean_drawdown_pct": -43.35,
+    "test_mean_return_pct": 45.96,
+    "test_median_return_pct": 13.21,
+    "test_mean_drawdown_pct": -24.46,
+    "test_profitable_symbols": 7,
+    "test_symbols": 10,
+    "train_score": 5.299999999999997
+  },
+  {
+    "label": "Hybrid 10/30 RSI 40/60",
+    "strategy": "hybrid",
+    "params": {
+      "fast_period": 10,
+      "slow_period": 30,
+      "rsi_period": 14,
+      "oversold": 40.0,
+      "overbought": 60.0
+    },
+    "train_mean_return_pct": 26.74,
+    "train_mean_drawdown_pct": -24.65,
+    "test_mean_return_pct": 15.47,
+    "test_median_return_pct": 1.46,
+    "test_mean_drawdown_pct": -13.7,
+    "test_profitable_symbols": 5,
+    "test_symbols": 10,
+    "train_score": 2.09
+  },
+  {
+    "label": "Hybrid 10/30 RSI 30/70",
+    "strategy": "hybrid",
+    "params": {
+      "fast_period": 10,
+      "slow_period": 30,
+      "rsi_period": 14,
+      "oversold": 30.0,
+      "overbought": 70.0
+    },
+    "train_mean_return_pct": 14.6,
+    "train_mean_drawdown_pct": -32.58,
+    "test_mean_return_pct": 15.39,
+    "test_median_return_pct": 10.96,
+    "test_mean_drawdown_pct": -19.29,
+    "test_profitable_symbols": 7,
+    "test_symbols": 10,
+    "train_score": -17.979999999999997
+  },
+  {
+    "label": "RSI 21/30/70",
+    "strategy": "rsi",
+    "params": {
+      "period": 21,
+      "oversold": 30.0,
+      "overbought": 70.0
+    },
+    "train_mean_return_pct": 8.32,
+    "train_mean_drawdown_pct": -29.9,
+    "test_mean_return_pct": 21.62,
+    "test_median_return_pct": 25.66,
+    "test_mean_drawdown_pct": -17.82,
+    "test_profitable_symbols": 7,
+    "test_symbols": 10,
+    "train_score": -21.58
+  },
+  {
+    "label": "Hybrid 20/50 RSI 40/60",
+    "strategy": "hybrid",
+    "params": {
+      "fast_period": 20,
+      "slow_period": 50,
+      "rsi_period": 14,
+      "oversold": 40.0,
+      "overbought": 60.0
+    },
+    "train_mean_return_pct": -0.07,
+    "train_mean_drawdown_pct": -24.97,
+    "test_mean_return_pct": 3.87,
+    "test_median_return_pct": 1.05,
+    "test_mean_drawdown_pct": -10.81,
+    "test_profitable_symbols": 6,
+    "test_symbols": 10,
+    "train_score": -25.04
+  },
+  {
+    "label": "RSI 14/35/65",
+    "strategy": "rsi",
+    "params": {
+      "period": 14,
+      "oversold": 35.0,
+      "overbought": 65.0
+    },
+    "train_mean_return_pct": 20.19,
+    "train_mean_drawdown_pct": -45.41,
+    "test_mean_return_pct": 28.86,
+    "test_median_return_pct": 20.05,
+    "test_mean_drawdown_pct": -24.9,
+    "test_profitable_symbols": 9,
+    "test_symbols": 10,
+    "train_score": -25.219999999999995
+  },
+  {
+    "label": "Hybrid 5/20 RSI 40/60",
+    "strategy": "hybrid",
+    "params": {
+      "fast_period": 5,
+      "slow_period": 20,
+      "rsi_period": 14,
+      "oversold": 40.0,
+      "overbought": 60.0
+    },
+    "train_mean_return_pct": 4.84,
+    "train_mean_drawdown_pct": -33.24,
+    "test_mean_return_pct": 6.36,
+    "test_median_return_pct": 3.05,
+    "test_mean_drawdown_pct": -17.89,
+    "test_profitable_symbols": 6,
+    "test_symbols": 10,
+    "train_score": -28.400000000000002
+  },
+  {
+    "label": "RSI 14/30/70",
+    "strategy": "rsi",
+    "params": {
+      "period": 14,
+      "oversold": 30.0,
+      "overbought": 70.0
+    },
+    "train_mean_return_pct": -4.77,
+    "train_mean_drawdown_pct": -47.62,
+    "test_mean_return_pct": 29.04,
+    "test_median_return_pct": 28.76,
+    "test_mean_drawdown_pct": -22.24,
+    "test_profitable_symbols": 10,
+    "test_symbols": 10,
+    "train_score": -52.39
+  },
+  {
+    "label": "RSI 21/35/65",
+    "strategy": "rsi",
+    "params": {
+      "period": 21,
+      "oversold": 35.0,
+      "overbought": 65.0
+    },
+    "train_mean_return_pct": -13.43,
+    "train_mean_drawdown_pct": -50.23,
+    "test_mean_return_pct": 25.88,
+    "test_median_return_pct": 30.35,
+    "test_mean_drawdown_pct": -20.21,
+    "test_profitable_symbols": 9,
+    "test_symbols": 10,
+    "train_score": -63.66
+  }
+]

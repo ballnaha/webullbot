@@ -16,7 +16,8 @@ class Config:
     WEBULL_API_ENDPOINT = ""
     WEBULL_API_REGION = "us"
     DEFAULT_SYMBOLS = []
-    TRADE_QUANTITY = 1
+    # US order budget in USD (legacy name retained for UI/API compatibility).
+    TRADE_QUANTITY = 100.0
     TRADE_QUANTITY_HK = 100
     HK_MAX_SLOTS = 1
     HK_MAX_PRICE_PER_SLOT = 999999.0
@@ -49,6 +50,20 @@ class Config:
     US_ENABLE_INVERSE_ETF_HEDGING = True
     US_ETF_BUDGET = 300.0
     US_ETF_STRATEGY = "standard"
+    US_ALLOW_NAKED_INVERSE = False
+    US_HEDGE_RATIO = 1.0
+    US_STOP_LOSS_PCT = 5.0
+    US_TAKE_PROFIT_PCT = 8.0
+    US_TRAILING_STOP_PCT = 0.0
+    US_MAX_HOLD_DAYS = 0
+    US_DAILY_LOSS_LIMIT_USD = 0.0
+    US_ETF_STOP_LOSS_PCT = 7.0
+    US_ETF_TAKE_PROFIT_PCT = 10.0
+    US_ETF_TRAILING_STOP_PCT = 0.0
+    REGULAR_HOURS_ONLY = True
+    US_MIN_ORDER_VALUE = 5.0
+    PAPER_SLIPPAGE_BPS = 5.0
+    PAPER_FEE_USD = 0.0
     
     # HK ETF Settings
     HK_ETF_TRADE_QTY = 100
@@ -59,12 +74,12 @@ class Config:
     # Inverse ETF hedging configurations
     ENABLE_INVERSE_ETF_HEDGING = True
     INVERSE_ETF_MAP = {
-        "AAPL": "AAPD",        # 1.5x Short Apple
-        "TSLA": "TSLQ",        # 1x Short Tesla
-        "NVDA": "NVDS",        # 1.25x Short Nvidia
+        "AAPL": "AAPD",        # 1x Short Apple
+        "TSLA": "TSLQ",        # 2x Short Tesla
+        "NVDA": "NVDS",        # 1.5x Short Nvidia
         "MSFT": "MSFD",        # 1.5x Short Microsoft
         "AMZN": "AMZD",        # 1x Short Amazon
-        "GOOGL": "GGLD",       # 1x Short Google
+        "GOOGL": "GGLS",       # 1x Short Google
         "META": "METD",        # 1x Short Meta
         "NFLX": "NFLD",        # 1x Short Netflix
         "AMD": "AMDS",         # 1x Short AMD
@@ -120,7 +135,7 @@ class Config:
             for symbol in os.getenv("DEFAULT_SYMBOLS", "").split(",") 
             if symbol.strip()
         ]
-        cls.TRADE_QUANTITY = int(os.getenv("TRADE_QUANTITY", "1"))
+        cls.TRADE_QUANTITY = float(os.getenv("TRADE_QUANTITY", "100.0"))
         cls.TRADE_QUANTITY_HK = int(os.getenv("TRADE_QUANTITY_HK", "100"))
         cls.HK_MAX_SLOTS = int(os.getenv("HK_MAX_SLOTS", "1"))
         cls.HK_MAX_PRICE_PER_SLOT = float(os.getenv("HK_MAX_PRICE_PER_SLOT", "999999.0"))
@@ -145,6 +160,20 @@ class Config:
         cls.US_ENABLE_INVERSE_ETF_HEDGING = os.getenv("US_ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
         cls.US_ETF_BUDGET = float(os.getenv("US_ETF_BUDGET", "300.0"))
         cls.US_ETF_STRATEGY = os.getenv("US_ETF_STRATEGY", "standard").lower()
+        cls.US_ALLOW_NAKED_INVERSE = os.getenv("US_ALLOW_NAKED_INVERSE", "FALSE").upper() == "TRUE"
+        cls.US_HEDGE_RATIO = float(os.getenv("US_HEDGE_RATIO", "1.0"))
+        cls.US_STOP_LOSS_PCT = float(os.getenv("US_STOP_LOSS_PCT", "5.0"))
+        cls.US_TAKE_PROFIT_PCT = float(os.getenv("US_TAKE_PROFIT_PCT", "8.0"))
+        cls.US_TRAILING_STOP_PCT = float(os.getenv("US_TRAILING_STOP_PCT", "0.0"))
+        cls.US_MAX_HOLD_DAYS = int(os.getenv("US_MAX_HOLD_DAYS", "0"))
+        cls.US_DAILY_LOSS_LIMIT_USD = float(os.getenv("US_DAILY_LOSS_LIMIT_USD", "0.0"))
+        cls.US_ETF_STOP_LOSS_PCT = float(os.getenv("US_ETF_STOP_LOSS_PCT", "7.0"))
+        cls.US_ETF_TAKE_PROFIT_PCT = float(os.getenv("US_ETF_TAKE_PROFIT_PCT", "10.0"))
+        cls.US_ETF_TRAILING_STOP_PCT = float(os.getenv("US_ETF_TRAILING_STOP_PCT", "0.0"))
+        cls.REGULAR_HOURS_ONLY = os.getenv("REGULAR_HOURS_ONLY", "TRUE").upper() == "TRUE"
+        cls.US_MIN_ORDER_VALUE = float(os.getenv("US_MIN_ORDER_VALUE", "5.0"))
+        cls.PAPER_SLIPPAGE_BPS = float(os.getenv("PAPER_SLIPPAGE_BPS", "5.0"))
+        cls.PAPER_FEE_USD = float(os.getenv("PAPER_FEE_USD", "0.0"))
         cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
         # HK ETF Settings
         cls.HK_ETF_TRADE_QTY = int(os.getenv("HK_ETF_TRADE_QTY", "100"))

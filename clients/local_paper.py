@@ -47,7 +47,7 @@ class LocalPaperTradingClient(BaseTradingClient):
         self._save_portfolio()
 
     def _migrate_positions(self):
-        """Backward-compatible migration: เติม entry_time และ peak_price ให้ positions เดิมที่ยังไม่มีฟิลด์เหล่านี้"""
+        """Backward-compatible migration: à¹€à¸•à¸´à¸¡ entry_time à¹à¸¥à¸° peak_price à¹ƒà¸«à¹‰ positions à¹€à¸”à¸´à¸¡à¸—à¸µà¹ˆà¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸Ÿà¸´à¸¥à¸”à¹Œà¹€à¸«à¸¥à¹ˆà¸²à¸™à¸µà¹‰"""
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         changed = False
         for symbol, pos in self.portfolio.get("positions", {}).items():
@@ -284,7 +284,12 @@ class LocalPaperTradingClient(BaseTradingClient):
             }
 
         is_hk = symbol.endswith(".HK")
+        from config import Config
+        slippage = float(getattr(Config, 'PAPER_SLIPPAGE_BPS', 0.0)) / 10000.0
+        if order_type.upper() == 'MKT':
+            current_price *= (1.0 + slippage) if action == 'BUY' else max(0.0, 1.0 - slippage)
         total_cost = current_price * qty
+        fee = float(getattr(Config, "PAPER_FEE_USD", 0.0)) if not is_hk else 0.0
         cash_usd = self.portfolio["balance"].get("cash", self.initial_cash)
         cash_hkd = self.portfolio["balance"].get("cash_hkd", self.initial_cash * 7.8)
         
@@ -292,18 +297,18 @@ class LocalPaperTradingClient(BaseTradingClient):
         currency_label = "HKD" if is_hk else "USD"
 
         if action == "BUY":
-            if cash < total_cost:
+            if cash < total_cost + fee:
                 return {
                     "status": "FAILED",
-                    "reason": f"Insufficient funds. Required: {total_cost:.2f} {currency_label}, Available: {cash:.2f} {currency_label}"
+                    "reason": f"Insufficient funds. Required: {(total_cost + fee):.2f} {currency_label}, Available: {cash:.2f} {currency_label}"
                 }
             
             # Deduct cash
             if is_hk:
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd - total_cost
-                self.portfolio["balance"]["cash"] = cash_usd - (total_cost / 7.8)
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd - total_cost - fee
+                self.portfolio["balance"]["cash"] = cash_usd - ((total_cost + fee) / 7.8)
             else:
-                self.portfolio["balance"]["cash"] = cash_usd - total_cost
+                self.portfolio["balance"]["cash"] = cash_usd - total_cost - fee
                 self.portfolio["balance"]["cash_hkd"] = cash_hkd - (total_cost * 7.8)
             
             # Update position
@@ -331,10 +336,10 @@ class LocalPaperTradingClient(BaseTradingClient):
                 
             # Add to cash
             if is_hk:
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd + total_cost
-                self.portfolio["balance"]["cash"] = cash_usd + (total_cost / 7.8)
+                self.portfolio["balance"]["cash_hkd"] = cash_hkd + total_cost - fee
+                self.portfolio["balance"]["cash"] = cash_usd + ((total_cost - fee) / 7.8)
             else:
-                self.portfolio["balance"]["cash"] = cash_usd + total_cost
+                self.portfolio["balance"]["cash"] = cash_usd + total_cost - fee
                 self.portfolio["balance"]["cash_hkd"] = cash_hkd + (total_cost * 7.8)
             
             # Update position

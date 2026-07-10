@@ -1,6 +1,7 @@
 import time
 import pandas as pd
-from datetime import datetime, date
+from datetime import datetime, date, time as dt_time
+from zoneinfo import ZoneInfo
 from config import Config
 from clients.base import BaseTradingClient
 from strategies.base import BaseStrategy
@@ -25,6 +26,8 @@ class TradingBot:
         # Daily Loss Tracking (reset each calendar day)
         self._daily_loss_date: date = date.today()
         self._daily_realized_loss_hkd: float = 0.0
+        self._daily_realized_loss_usd: float = 0.0
+        self._recent_submitted: dict = {}
         self._daily_loss_limit_triggered: bool = False
 
         # Log lists
@@ -58,59 +61,67 @@ class TradingBot:
         if today != self._daily_loss_date:
             self._daily_loss_date = today
             self._daily_realized_loss_hkd = 0.0
+            self._daily_realized_loss_usd = 0.0
             self._daily_loss_limit_triggered = False
             self.add_log("Daily Loss counter reset for new trading day.")
 
+    def _is_market_open(self) -> bool:
+        if not Config.REGULAR_HOURS_ONLY:
+            return True
+        if self.market == "HK":
+            return True  # Existing HK execution rules are broker-specific.
+        now = datetime.now(ZoneInfo("America/New_York"))
+        if now.weekday() >= 5:
+            return False
+        return dt_time(9, 30) <= now.time() < dt_time(16, 0)
+
+    def _is_inverse_etf(self, symbol: str) -> bool:
+        return symbol in set(Config.INVERSE_ETF_MAP.values())
+
+    def _closed_bars(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Use only completed intraday bars to prevent signals from repainting."""
+        if self.candle_period != "d" and len(df) > 3:
+            return df.iloc[:-1].copy()
+        return df
+
+    def _order_is_working(self, symbol: str, working_symbols: set) -> bool:
+        return symbol.upper() in {str(item).upper() for item in working_symbols}
     def _check_risk_exits(self, positions: list) -> list:
         exits = []
         now = datetime.now()
-        trail_pct = Config.HK_TRAILING_STOP_PCT
-        max_hold_days = Config.HK_MAX_HOLD_DAYS
-
         for pos in positions:
             symbol = pos.get("symbol", "")
-            if not symbol.endswith(".HK"):
+            is_hk = symbol.endswith(".HK")
+            if self.market == "US" and is_hk:
                 continue
-            
-            # Determine if this is an ETF (usually starts with 7 or 28 in HK)
-            is_etf = symbol.startswith("7") or symbol.startswith("28")
-            if is_etf:
-                sl_pct = Config.HK_ETF_STOP_LOSS_PCT
-                tp_pct = Config.HK_ETF_TAKE_PROFIT_PCT
+            if self.market == "HK" and not is_hk:
+                continue
+            is_etf = self._is_inverse_etf(symbol) if self.market == "US" else (symbol.startswith("7") or symbol.startswith("28"))
+            if self.market == "US":
+                sl_pct = Config.US_ETF_STOP_LOSS_PCT if is_etf else Config.US_STOP_LOSS_PCT
+                tp_pct = Config.US_ETF_TAKE_PROFIT_PCT if is_etf else Config.US_TAKE_PROFIT_PCT
+                trail_pct = Config.US_ETF_TRAILING_STOP_PCT if is_etf else Config.US_TRAILING_STOP_PCT
+                max_hold_days = Config.US_MAX_HOLD_DAYS
             else:
-                sl_pct = Config.HK_STOP_LOSS_PCT
-                tp_pct = Config.HK_TAKE_PROFIT_PCT
-            qty = pos.get("qty", 0)
-            avg_price = pos.get("avg_price", 0.0)
+                sl_pct = Config.HK_ETF_STOP_LOSS_PCT if is_etf else Config.HK_STOP_LOSS_PCT
+                tp_pct = Config.HK_ETF_TAKE_PROFIT_PCT if is_etf else Config.HK_TAKE_PROFIT_PCT
+                trail_pct = Config.HK_TRAILING_STOP_PCT
+                max_hold_days = Config.HK_MAX_HOLD_DAYS
+            qty = float(pos.get("qty", 0))
+            avg_price = float(pos.get("avg_price", 0.0))
             if qty <= 0 or avg_price <= 0:
                 continue
-            market_value = pos.get("market_value", 0.0)
-            current_price = market_value / qty if qty > 0 else 0.0
+            current_price = float(pos.get("market_value", 0.0)) / qty
             if current_price <= 0:
                 continue
             pnl_pct = ((current_price - avg_price) / avg_price) * 100.0
-            peak_price = avg_price
-            entry_time_str = ""
-            try:
-                portfolio_pos = self.client.portfolio.get("positions", {}).get(symbol, {})
-                peak_price = portfolio_pos.get("peak_price", avg_price)
-                entry_time_str = portfolio_pos.get("entry_time", "")
-            except Exception:
-                pass
-
-            # 1. Stop Loss
+            portfolio_pos = getattr(self.client, "portfolio", {}).get("positions", {}).get(symbol, {})
+            peak_price = float(portfolio_pos.get("peak_price", avg_price))
+            entry_time_str = portfolio_pos.get("entry_time", "")
             if sl_pct > 0 and pnl_pct <= -sl_pct:
-                exits.append((symbol, qty, avg_price, current_price,
-                               f"STOP LOSS triggered ({pnl_pct:.2f}% <= -{sl_pct}%)"))
-                continue
-
-            # 2. Take Profit
+                exits.append((symbol, qty, avg_price, current_price, f"STOP LOSS triggered ({pnl_pct:.2f}% <= -{sl_pct}%)")); continue
             if tp_pct > 0 and pnl_pct >= tp_pct:
-                exits.append((symbol, qty, avg_price, current_price,
-                               f"TAKE PROFIT triggered ({pnl_pct:.2f}% >= +{tp_pct}%)"))
-                continue
-
-            # 3. Trailing Stop
+                exits.append((symbol, qty, avg_price, current_price, f"TAKE PROFIT triggered ({pnl_pct:.2f}% >= +{tp_pct}%)")); continue
             if trail_pct > 0:
                 if current_price > peak_price:
                     try:
@@ -119,34 +130,24 @@ class TradingBot:
                         peak_price = current_price
                     except Exception:
                         pass
-                if peak_price > 0:
-                    trail_drop_pct = ((peak_price - current_price) / peak_price) * 100.0
-                    if trail_drop_pct >= trail_pct:
-                        exits.append((symbol, qty, avg_price, current_price,
-                                      f"TRAILING STOP triggered (dropped {trail_drop_pct:.2f}% from peak {peak_price:.2f})"))
-                        continue
-
-            # 4. Max Hold Days
+                if peak_price > 0 and ((peak_price - current_price) / peak_price) * 100.0 >= trail_pct:
+                    exits.append((symbol, qty, avg_price, current_price, f"TRAILING STOP triggered (dropped {((peak_price-current_price)/peak_price)*100.0:.2f}%)")); continue
             if max_hold_days > 0 and entry_time_str:
                 try:
-                    entry_dt = datetime.strptime(entry_time_str, "%Y-%m-%d %H:%M:%S")
-                    hold_days = (now - entry_dt).days
+                    hold_days = (now - datetime.strptime(entry_time_str, "%Y-%m-%d %H:%M:%S")).days
                     if hold_days >= max_hold_days:
-                        exits.append((symbol, qty, avg_price, current_price,
-                                      f"MAX HOLD DAYS triggered (held {hold_days} days >= {max_hold_days} days)"))
-                        continue
-                except Exception:
+                        exits.append((symbol, qty, avg_price, current_price, f"MAX HOLD DAYS triggered ({hold_days} >= {max_hold_days})"))
+                except (TypeError, ValueError):
                     pass
-
         return exits
-
     def _execute_risk_exit(self, symbol: str, qty, avg_price: float, current_price: float, reason: str):
         self.add_log(f"[RISK EXIT] {reason} -- Selling {qty} shares of {symbol}")
         order_res = self.client.place_order(symbol=symbol, qty=qty, action="SELL", order_type="MKT")
         if order_res.get("status") in ["FILLED", "SUBMITTED"]:
             exec_price = order_res.get("price", current_price)
             realized_pnl = (exec_price - avg_price) * qty
-            self.add_log(f"[RISK EXIT] Sold {qty} shares of {symbol} at {exec_price:.2f} HKD | PnL: {realized_pnl:+.2f} HKD")
+            currency = "HKD" if self.market == "HK" else "USD"
+            self.add_log(f"[RISK EXIT] Exit order {order_res.get('status')} for {qty} shares of {symbol} at {exec_price:.2f} {currency} | estimated PnL: {realized_pnl:+.2f} {currency}")
             self.trades_history.append({
                 "time": datetime.now().strftime("%H:%M:%S"),
                 "symbol": symbol,
@@ -156,8 +157,11 @@ class TradingBot:
                 "status": order_res.get("status"),
                 "reason": reason
             })
-            if realized_pnl < 0:
-                self._daily_realized_loss_hkd += abs(realized_pnl)
+            if order_res.get("status") == "FILLED" and realized_pnl < 0:
+                if self.market == "US":
+                    self._daily_realized_loss_usd += abs(realized_pnl)
+                else:
+                    self._daily_realized_loss_hkd += abs(realized_pnl)
         else:
             self.add_log(f"[RISK EXIT] FAILED to place SELL for {symbol}: {order_res.get('reason', 'Unknown')}")
 
@@ -169,31 +173,32 @@ class TradingBot:
             positions = self.client.get_positions()
             pos_map = {pos["symbol"]: pos for pos in positions}
 
-            # HK Risk Management
-            if self.market == "HK":
-                daily_limit = Config.HK_DAILY_LOSS_LIMIT_HKD
-                if daily_limit > 0 and self._daily_realized_loss_hkd >= daily_limit:
-                    if not self._daily_loss_limit_triggered:
-                        self._daily_loss_limit_triggered = True
-                        self.add_log(
-                            f"[RISK] DAILY LOSS LIMIT reached: "
-                            f"{self._daily_realized_loss_hkd:.2f} HKD >= {daily_limit:.2f} HKD -- "
-                            f"HK Bot paused for today."
-                        )
-                    self.add_log("HK Bot is paused due to Daily Loss Limit. Skipping this iteration.")
-                    updated_balance = self.client.get_account_balance()
-                    updated_positions = self.client.get_positions()
-                    return {"balance": updated_balance, "positions": updated_positions, "logs": self.logs, "trades": self.trades_history}
+            daily_limit = Config.HK_DAILY_LOSS_LIMIT_HKD if self.market == "HK" else Config.US_DAILY_LOSS_LIMIT_USD
+            daily_loss = self._daily_realized_loss_hkd if self.market == "HK" else self._daily_realized_loss_usd
+            if daily_limit > 0 and daily_loss >= daily_limit:
+                self.add_log(f"[RISK] DAILY LOSS LIMIT reached: {daily_loss:.2f} >= {daily_limit:.2f}. Bot paused.")
+                return {"balance": balance, "positions": positions, "logs": self.logs, "trades": self.trades_history}
 
-                hk_exits = self._check_risk_exits(positions)
-                for symbol, qty, avg_price, current_price, reason in hk_exits:
-                    self._execute_risk_exit(symbol, qty, avg_price, current_price, reason)
-                positions = self.client.get_positions()
-                pos_map = {pos["symbol"]: pos for pos in positions}
+            if not self._is_market_open():
+                self.add_log(f"{self.market} market is closed; skipping orders.")
+                return {"balance": balance, "positions": positions, "logs": self.logs, "trades": self.trades_history}
 
+            risk_exits = self._check_risk_exits(positions)
+            for symbol, qty, avg_price, current_price, reason in risk_exits:
+                self._execute_risk_exit(symbol, qty, avg_price, current_price, reason)
+            positions = self.client.get_positions()
+            pos_map = {pos["symbol"]: pos for pos in positions}
+            try:
+                working_symbols = {o.get("symbol") for o in self.client.get_working_orders() if o.get("symbol")}
+            except Exception:
+                working_symbols = set()
             for symbol in self.symbols:
+                if self._order_is_working(symbol, working_symbols):
+                    self.add_log(f'Skipping {symbol}: working order already exists.')
+                    continue
                 self.add_log(f"Analyzing {symbol}...")
                 df = self.client.get_bars(symbol=symbol, interval=self.candle_period, limit=100)
+                df = self._closed_bars(df)
                 if df.empty:
                     self.add_log(f"Warning: No historical data received for {symbol}. Skipping.")
                     continue
@@ -233,7 +238,7 @@ class TradingBot:
                                 elif score <= -2:
                                     etf_signal = "SELL"
                             else:
-                                if etf_strat_name in ["volume_ema", "sma", "rsi", "hybrid"]:
+                                if etf_strat_name in ["volume_ema", "sma", "rsi", "hybrid", "regime_adaptive", "short_regime"]:
                                     strat = get_strategy(etf_strat_name)
                                 else:
                                     strat = self.strategy
@@ -247,6 +252,12 @@ class TradingBot:
                             owned_etf_qty = pos_map.get(etf_symbol, {}).get("qty", 0)
                             
                             if etf_signal == "BUY":
+                                if (not is_hk and not Config.US_ALLOW_NAKED_INVERSE and owned_qty <= 0):
+                                    self.add_log(f"Skipping inverse ETF BUY for {etf_symbol}: no underlying Long position to hedge.")
+                                    continue
+                                if self._order_is_working(etf_symbol, working_symbols):
+                                    self.add_log(f"Skipping ETF BUY for {etf_symbol}: working order already exists.")
+                                    continue
                                 if is_hk:
                                     slot_size = Config.HK_ETF_TRADE_QTY
                                     current_etf_slots = int(owned_etf_qty / slot_size) if slot_size > 0 else 0
@@ -274,11 +285,12 @@ class TradingBot:
                                         except Exception:
                                             pass
                                         
-                                        slot_size = round(float(Config.US_ETF_BUDGET) / etf_curr_price, 4) if etf_curr_price > 0 else 0
+                                        hedge_budget = min(float(Config.US_ETF_BUDGET), max(0.0, float(owned_qty) * current_price * float(Config.US_HEDGE_RATIO)))
+                                        slot_size = round(hedge_budget / etf_curr_price, 4) if etf_curr_price > 0 else 0
                                         if slot_size <= 0:
                                             self.add_log(f"Auto-Hedge is BUY for US ETF {etf_symbol} but calculated quantity is {slot_size}. Skipping.")
                                         else:
-                                            self.add_log(f"Auto-Hedge Signal: BUY {slot_size} shares of US ETF {etf_symbol} (Budget: ${Config.US_ETF_BUDGET})...")
+                                            self.add_log(f"Auto-Hedge Signal: BUY {slot_size} shares of US ETF {etf_symbol} (Budget: ${hedge_budget:.2f})...")
                                             order_res = self.client.place_order(symbol=etf_symbol, qty=slot_size, action="BUY", order_type="MKT")
                                             if order_res.get("status") in ["FILLED", "SUBMITTED"]:
                                                 exec_price = order_res.get("price", etf_curr_price)
@@ -288,6 +300,9 @@ class TradingBot:
                                                 self.add_log(f"FAILED to place Auto-Hedge BUY order for {etf_symbol}: {order_res.get('reason', 'Unknown reason')}")
                             
                             elif etf_signal == "SELL":
+                                if self._order_is_working(etf_symbol, working_symbols):
+                                    self.add_log(f"Skipping ETF SELL for {etf_symbol}: working order already exists.")
+                                    continue
                                 if owned_etf_qty <= 0:
                                     self.add_log(f"Auto-Hedge is SELL but do not own any shares of ETF {etf_symbol}. Skipping.")
                                 else:
@@ -334,6 +349,9 @@ class TradingBot:
                             if owned_qty > 0:
                                 self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
                             else:
+                                if float(self.trade_qty_us) < Config.US_MIN_ORDER_VALUE:
+                                    self.add_log(f"Signal is BUY for {symbol} but budget ${self.trade_qty_us:.2f} is below minimum ${Config.US_MIN_ORDER_VALUE:.2f}. Skipping.")
+                                    continue
                                 qty_to_trade = round(float(self.trade_qty_us) / current_price, 4) if current_price > 0 else 0
                                 if qty_to_trade <= 0:
                                     self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")

@@ -83,6 +83,18 @@ import { TradeHistoryTab } from 'frontend/components/trading/TradeHistoryTab';
 
 const API_BASE = "http://127.0.0.1:8484/api";
 
+const STOCK_US_DEFAULTS = {
+  symbols: ["AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC"],
+  quantity: 10,
+  interval: 60,
+  candlePeriod: "m30",
+  strategy: "sma",
+  autoLong: true,
+  autoShort: true,
+  etfBudget: 20,
+  etfStrategy: "standard",
+} as const;
+
 interface Balance {
   cash: number;
   net_liquidation: number;
@@ -616,13 +628,16 @@ export default function StockUsHome() {
   const handleSaveUsSettings = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
+    const usSymbols = formUsSymbols.split(",").map((symbol) => symbol.trim().toUpperCase()).filter(Boolean);
+    const hkSymbols = status.symbols.filter((symbol) => symbol.endsWith(".HK"));
+    const symbols = [...new Set([...usSymbols, ...hkSymbols])];
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           trade_mode: status.trade_mode,
-          symbols: status.symbols,
+          symbols,
           quantity: formQty,
           quantity_hk: status.quantity_hk,
           hk_max_slots: status.hk_max_slots,
@@ -663,15 +678,16 @@ export default function StockUsHome() {
   };
 
   const handleLoadUsBudgetDefaults = () => {
-    setFormQty(100);
-    setFormInterval(60);
-    setFormUsAutoLong(true);
-    setFormUsAutoShort(true);
-    setFormUsEtfBudget(100);
-    setFormUsEtfStrategy("all");
-    setFormStrategy("volume_ema");
-    setFormPeriod("m15");
-    showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $100 เรียบร้อยแล้วครับ", "info");
+    setFormUsSymbols(STOCK_US_DEFAULTS.symbols.join(", "));
+    setFormQty(STOCK_US_DEFAULTS.quantity);
+    setFormInterval(STOCK_US_DEFAULTS.interval);
+    setFormPeriod(STOCK_US_DEFAULTS.candlePeriod);
+    setFormStrategy(STOCK_US_DEFAULTS.strategy);
+    setFormUsAutoLong(STOCK_US_DEFAULTS.autoLong);
+    setFormUsAutoShort(STOCK_US_DEFAULTS.autoShort);
+    setFormUsEtfBudget(STOCK_US_DEFAULTS.etfBudget);
+    setFormUsEtfStrategy(STOCK_US_DEFAULTS.etfStrategy);
+    showToast("Stock US defaults loaded. Click Save & Hot-Reload to apply.", "info");
   };
 
   const handleManualScan = async () => {
@@ -1670,6 +1686,7 @@ export default function StockUsHome() {
                       <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
                       <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
                       <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
+                      <MenuItem value="regime_adaptive">Regime Adaptive (Trend + Pullback + ATR)</MenuItem>
                     </Select>
                   </FormControl>
 
@@ -1826,6 +1843,7 @@ export default function StockUsHome() {
                       <MenuItem value="sma">SMA Crossover</MenuItem>
                       <MenuItem value="rsi">RSI Reversal</MenuItem>
                       <MenuItem value="hybrid">SMA+RSI Hybrid</MenuItem>
+                      <MenuItem value="short_regime">Short Regime (Bearish + ATR)</MenuItem>
                     </Select>
                   </FormControl>
                 </Box>

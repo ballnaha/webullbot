@@ -8,3 +8,5 @@ did.bin
 # Python caching
 __pycache__/
 *.pyc
+
+backtest_results/yf_cache/

@@ -1,0 +1,11 @@
+return_pct,max_drawdown_pct,trades,win_rate_pct,profit_factor,final_equity,buy_hold_return_pct,symbol,status,bars,period,strategy
+42.08,-21.81,21,42.86,2.081,14207.77,121.91,AAPL,OK,1255,5y,regime_adaptive
+19.03,-21.8,23,34.78,1.536,11903.07,43.89,MSFT,OK,1255,5y,regime_adaptive
+21.1,-46.73,24,29.17,1.207,12109.69,78.53,TSLA,OK,1255,5y,regime_adaptive
+5.66,-51.96,29,27.59,1.052,10566.12,912.58,NVDA,OK,1255,5y,regime_adaptive
+-0.86,-32.13,34,32.35,0.989,9913.52,31.97,AMZN,OK,1255,5y,regime_adaptive
+323.18,-12.4,23,52.17,5.004,42317.87,90.7,META,OK,1255,5y,regime_adaptive
+59.6,-21.82,31,29.03,1.961,15959.67,181.65,GOOGL,OK,1255,5y,regime_adaptive
+10.87,-27.46,25,36.0,1.16,11086.86,35.92,NFLX,OK,1255,5y,regime_adaptive
+-5.07,-39.81,21,28.57,0.944,9492.79,503.56,AMD,OK,1255,5y,regime_adaptive
+-33.2,-44.56,26,23.08,0.529,6679.71,110.42,INTC,OK,1255,5y,regime_adaptive

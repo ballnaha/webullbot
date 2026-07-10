@@ -94,6 +94,8 @@ def _bg_init_components():
             strategy_us = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
         elif Config.STRATEGY_US == "volume_ema":
             strategy_us = get_strategy("volume_ema", fast_period=9, slow_period=21, vol_period=20, vol_factor=2.5)
+        elif Config.STRATEGY_US == "regime_adaptive":
+            strategy_us = get_strategy("regime_adaptive", fast_period=20, slow_period=50, rsi_period=14, rsi_entry=45.0, rsi_exit=40.0, rsi_ceiling=68.0)
         else:
             strategy_us = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
             
@@ -105,6 +107,8 @@ def _bg_init_components():
             strategy_hk = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
         elif Config.STRATEGY_HK == "volume_ema":
             strategy_hk = get_strategy("volume_ema", fast_period=9, slow_period=21, vol_period=20, vol_factor=2.5)
+        elif Config.STRATEGY_HK == "regime_adaptive":
+            strategy_hk = get_strategy("regime_adaptive", fast_period=20, slow_period=50, rsi_period=14, rsi_entry=45.0, rsi_exit=40.0, rsi_ceiling=68.0)
         else:
             strategy_hk = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
             
@@ -225,7 +229,7 @@ async def startup_event():
 class ConfigModel(BaseModel):
     trade_mode: str
     symbols: List[str]
-    quantity: int
+    quantity: float
     quantity_hk: Optional[int] = 100
     hk_max_slots: Optional[int] = None
     hk_max_price_per_slot: Optional[float] = None
@@ -266,6 +270,14 @@ class ConfigModel(BaseModel):
     us_enable_inverse_etf_hedging: Optional[bool] = True
     us_etf_budget: Optional[float] = 300.0
     us_etf_strategy: Optional[str] = "standard"
+    us_stop_loss_pct: Optional[float] = None
+    us_take_profit_pct: Optional[float] = None
+    us_trailing_stop_pct: Optional[float] = None
+    us_max_hold_days: Optional[int] = None
+    us_daily_loss_limit_usd: Optional[float] = None
+    us_etf_stop_loss_pct: Optional[float] = None
+    us_etf_take_profit_pct: Optional[float] = None
+    us_etf_trailing_stop_pct: Optional[float] = None
 
 class OrderModel(BaseModel):
     symbol: str
@@ -316,6 +328,16 @@ def get_status():
         "us_enable_inverse_etf_hedging": Config.US_ENABLE_INVERSE_ETF_HEDGING,
         "us_etf_budget": Config.US_ETF_BUDGET,
         "us_etf_strategy": Config.US_ETF_STRATEGY,
+        "us_allow_naked_inverse": Config.US_ALLOW_NAKED_INVERSE,
+        "us_hedge_ratio": Config.US_HEDGE_RATIO,
+        "us_stop_loss_pct": Config.US_STOP_LOSS_PCT,
+        "us_take_profit_pct": Config.US_TAKE_PROFIT_PCT,
+        "us_trailing_stop_pct": Config.US_TRAILING_STOP_PCT,
+        "us_max_hold_days": Config.US_MAX_HOLD_DAYS,
+        "us_daily_loss_limit_usd": Config.US_DAILY_LOSS_LIMIT_USD,
+        "us_etf_stop_loss_pct": Config.US_ETF_STOP_LOSS_PCT,
+        "us_etf_take_profit_pct": Config.US_ETF_TAKE_PROFIT_PCT,
+        "us_etf_trailing_stop_pct": Config.US_ETF_TRAILING_STOP_PCT,
     }
 
 @app.get("/api/portfolio")
@@ -363,6 +385,8 @@ def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat, vol_
                 "hybrid_signal": "N/A",
                 "volume_ema_signal": "N/A"
             }
+        if Config.CANDLE_PERIOD != "d" and len(df) > 3:
+            df = df.iloc[:-1].copy()
         current_price = float(df['close'].iloc[-1])
         # SMA values
         sma_fast_series = df['close'].rolling(window=10).mean()
@@ -587,6 +611,16 @@ def update_config(data: ConfigModel):
                 f.write(f"US_ETF_BUDGET={us_etf_budget}\n")
                 f.write(f"US_ETF_STRATEGY={us_etf_strategy.lower()}\n")
             
+                us_sl = data.us_stop_loss_pct if data.us_stop_loss_pct is not None else Config.US_STOP_LOSS_PCT
+                us_tp = data.us_take_profit_pct if data.us_take_profit_pct is not None else Config.US_TAKE_PROFIT_PCT
+                us_trail = data.us_trailing_stop_pct if data.us_trailing_stop_pct is not None else Config.US_TRAILING_STOP_PCT
+                us_hold = data.us_max_hold_days if data.us_max_hold_days is not None else Config.US_MAX_HOLD_DAYS
+                us_daily = data.us_daily_loss_limit_usd if data.us_daily_loss_limit_usd is not None else Config.US_DAILY_LOSS_LIMIT_USD
+                us_etf_sl = data.us_etf_stop_loss_pct if data.us_etf_stop_loss_pct is not None else Config.US_ETF_STOP_LOSS_PCT
+                us_etf_tp = data.us_etf_take_profit_pct if data.us_etf_take_profit_pct is not None else Config.US_ETF_TAKE_PROFIT_PCT
+                us_etf_trail = data.us_etf_trailing_stop_pct if data.us_etf_trailing_stop_pct is not None else Config.US_ETF_TRAILING_STOP_PCT
+                f.write(f"US_STOP_LOSS_PCT={us_sl}\nUS_TAKE_PROFIT_PCT={us_tp}\nUS_TRAILING_STOP_PCT={us_trail}\nUS_MAX_HOLD_DAYS={us_hold}\nUS_DAILY_LOSS_LIMIT_USD={us_daily}\nUS_ETF_STOP_LOSS_PCT={us_etf_sl}\nUS_ETF_TAKE_PROFIT_PCT={us_etf_tp}\nUS_ETF_TRAILING_STOP_PCT={us_etf_trail}\nREGULAR_HOURS_ONLY=TRUE\nUS_MIN_ORDER_VALUE=5.0\n")
+                f.write(f"US_ALLOW_NAKED_INVERSE={str(Config.US_ALLOW_NAKED_INVERSE).upper()}\nUS_HEDGE_RATIO={Config.US_HEDGE_RATIO}\nPAPER_SLIPPAGE_BPS={Config.PAPER_SLIPPAGE_BPS}\nPAPER_FEE_USD={Config.PAPER_FEE_USD}\n")
             # Force reload Config in-place
             Config.reload_values()
             
