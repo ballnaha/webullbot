@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { 
   ThemeProvider, 
   createTheme, 
@@ -39,7 +39,8 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  IconButton
+  IconButton,
+  Tooltip
 } from '@mui/material';
 
 import Header from 'frontend/components/Header';
@@ -57,6 +58,7 @@ import {
   Activity, 
   Terminal, 
   History, 
+  Clock,
   ArrowUpRight, 
   ArrowDownLeft, 
   RefreshCw, 
@@ -70,8 +72,14 @@ import {
   Plus,
   ListPlus,
   X,
-  Save
+  Save,
+  Search
 } from 'lucide-react';
+
+import { LongScannerTab } from 'frontend/components/trading/LongScannerTab';
+import { InverseEtfsTab } from 'frontend/components/trading/InverseEtfsTab';
+import { ActivePositionsTab } from 'frontend/components/trading/ActivePositionsTab';
+import { TradeHistoryTab } from 'frontend/components/trading/TradeHistoryTab';
 
 const API_BASE = "http://127.0.0.1:8484/api";
 
@@ -113,6 +121,17 @@ interface BotStatus {
   interval: number;
   candle_period: string;
   has_client: boolean;
+  // HK Risk Management
+  hk_stop_loss_pct?: number;
+  hk_take_profit_pct?: number;
+  hk_trailing_stop_pct?: number;
+  hk_max_hold_days?: number;
+  hk_daily_loss_limit_hkd?: number;
+  // HK ETF Settings
+  hk_etf_trade_qty?: number;
+  hk_etf_stop_loss_pct?: number;
+  hk_etf_take_profit_pct?: number;
+  hk_etf_strategy?: string;
 }
 
 interface SignalData {
@@ -133,6 +152,11 @@ interface Trade {
   qty: number;
   price: number;
   status: string;
+  timestamp?: string;
+  total?: number;
+  avgBuyPrice?: number;
+  realizedPnL?: number;
+  pnlPct?: number;
 }
 
 // Company Names Database for Tickers
@@ -145,7 +169,7 @@ const STOCK_NAMES: Record<string, string> = {
   "TSLA": "Tesla, Inc.",
   "NVDA": "NVIDIA Corporation",
   
-  // HK Tickers (with and without leading zeros for robustness)
+  // HK Tickers
   "700.HK": "Tencent Holdings Ltd.",
   "0700.HK": "Tencent Holdings Ltd.",
   "9988.HK": "Alibaba Group Holding Ltd.",
@@ -155,44 +179,57 @@ const STOCK_NAMES: Record<string, string> = {
   "1810.HK": "Xiaomi Corporation",
   "9888.HK": "Baidu, Inc.",
   "2318.HK": "Ping An Insurance Group",
-  
   "3988.HK": "Bank of China Limited",
   "1398.HK": "Industrial and Commercial Bank of China",
-  
   "939.HK": "China Construction Bank",
   "0939.HK": "China Construction Bank",
-  
   "5.HK": "HSBC Holdings plc",
   "0005.HK": "HSBC Holdings plc",
-  
   "1299.HK": "AIA Group Limited",
-  
   "386.HK": "Sinopec Corp.",
   "0386.HK": "Sinopec Corp.",
-  
   "857.HK": "PetroChina Company Limited",
   "0857.HK": "PetroChina Company Limited",
-  
   "2628.HK": "China Life Insurance Company",
-  
   "941.HK": "China Mobile Limited",
   "0941.HK": "China Mobile Limited",
-  
   "2382.HK": "Sunny Optical Technology",
   "2015.HK": "Li Auto Inc.",
   "1211.HK": "BYD Company Limited",
-  
   "981.HK": "SMIC",
   "0981.HK": "Semiconductor Manufacturing International Corp",
-  
   "1024.HK": "Kuaishou Technology",
-  
   "388.HK": "HKEX",
   "0388.HK": "Hong Kong Exchanges and Clearing Limited",
-  
   "9868.HK": "XPeng Inc.",
   "2269.HK": "WuXi Biologics",
-  "1818.HK": "Zhaojin Mining Industry Co., Ltd."
+  "1818.HK": "Zhaojin Mining Industry Co., Ltd.",
+
+  // === Hong Kong ETFs (Long, Short, and Leveraged) ===
+  "2800.HK": "Tracker Fund of Hong Kong (盈富基金) - HSI Long",
+  "3033.HK": "CSOP Hang Seng Tech ETF (南方恒生科技) - Tech Long",
+  "2828.HK": "Hang Seng China Enterprises ETF (恒生国企) - HSCEI Long",
+  "3067.HK": "iShares Hang Seng Tech ETF (iShares恒生科技)",
+  "3088.HK": "ChinaAMC Hang Seng Tech ETF (华夏恒生科技)",
+  "3032.HK": "Hang Seng Tech Index ETF (恒生科技ETF)",
+  "2822.HK": "CSOP FTSE China A50 ETF (南方A50)",
+  "3188.HK": "ChinaAMC CSI 300 Index ETF (华夏沪深300)",
+  "2840.HK": "SPDR Gold Trust (SPDR黃金ETF)",
+  "3160.HK": "CSOP Saudi Arabia ETF (南方沙特)",
+  "3147.HK": "CSOP China IC ETF (南方半导体)",
+  "3180.HK": "CSOP Hang Seng China Enterprises Index ETF",
+  "3010.HK": "iShares MSCI Hong Kong ETF",
+  
+  // Leveraged and Inverse ETFs (HSI, HSTECH, HSCEI)
+  "7200.HK": "CSOP Hang Seng Index Leveraged (ตัวคูณ 2x)",
+  "7300.HK": "CSOP Hang Seng Index Inverse (ตัวคูณ -1x)",
+  "7500.HK": "CSOP Hang Seng Index Inverse (ตัวคูณ -2x)",
+  "7226.HK": "CSOP Hang Seng Tech Leveraged (ตัวคูณ 2x)",
+  "7330.HK": "CSOP Hang Seng Tech Inverse (ตัวคูณ -1x)",
+  "7552.HK": "CSOP Hang Seng Tech Inverse (ตัวคูณ -2x)",
+  "7288.HK": "CSOP Hang Seng China Enterprises Leveraged (ตัวคูณ 2x)",
+  "7388.HK": "CSOP Hang Seng China Enterprises Inverse (ตัวคูณ -1x)",
+  "7588.HK": "CSOP Hang Seng China Enterprises Inverse (ตัวคูณ -2x)"
 };
 
 // Professional dark trading theme (metabot style)
@@ -331,6 +368,9 @@ export default function HongkongHome() {
   const [positions, setPositions] = useState<Position[]>([]);
   const [logs, setLogs] = useState<string[]>([]);
   const [trades, setTrades] = useState<Trade[]>([]);
+
+
+
   const [signals, setSignals] = useState<SignalData[]>([]);
   const [isSignalsLoading, setIsSignalsLoading] = useState(true);
 
@@ -346,8 +386,11 @@ export default function HongkongHome() {
   const [rowsPerPageEtf, setRowsPerPageEtf] = useState(10);
   const [pagePos, setPagePos] = useState(0);
   const [rowsPerPagePos, setRowsPerPagePos] = useState(10);
+  const [pageHistory, setPageHistory] = useState(0);
+  const [rowsPerPageHistory, setRowsPerPageHistory] = useState(10);
   const [maxPrice, setMaxPrice] = useState<string>(""); 
-  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le"); 
+  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("le");  
+  const [searchQuery, setSearchQuery] = useState("");
   
   // Watchlist Drawer States
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -494,7 +537,20 @@ export default function HongkongHome() {
   const [formHkMaxQtyPerSlot, setFormHkMaxQtyPerSlot] = useState(100);
   const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
   const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
-  
+
+  // HK Risk Management state
+  const [formHkStopLossPct, setFormHkStopLossPct] = useState<number>(5.0);
+  const [formHkTakeProfitPct, setFormHkTakeProfitPct] = useState<number>(8.0);
+  const [formHkTrailingStopPct, setFormHkTrailingStopPct] = useState<number>(0.0);
+  const [formHkMaxHoldDays, setFormHkMaxHoldDays] = useState<number>(0);
+  const [formHkDailyLossLimitHkd, setFormHkDailyLossLimitHkd] = useState<number>(0.0);
+
+  // HK ETF specific state
+  const [formHkEtfTradeQty, setFormHkEtfTradeQty] = useState<number>(100);
+  const [formHkEtfStopLossPct, setFormHkEtfStopLossPct] = useState<number>(5.0);
+  const [formHkEtfTakeProfitPct, setFormHkEtfTakeProfitPct] = useState<number>(8.0);
+  const [formHkEtfStrategy, setFormHkEtfStrategy] = useState<string>("all");
+
   // Credentials config inputs
   const [formUsername, setFormUsername] = useState("");
   const [formPassword, setFormPassword] = useState("");
@@ -575,6 +631,18 @@ export default function HongkongHome() {
       setFormHkFilterPriceOperator(filterOperator);
       setMaxPrice(filterLimit.toString());
       setPriceOperator(filterOperator as "le" | "ge");
+      // HK Risk Management
+      setFormHkStopLossPct(status.hk_stop_loss_pct !== undefined ? status.hk_stop_loss_pct : 5.0);
+      setFormHkTakeProfitPct(status.hk_take_profit_pct !== undefined ? status.hk_take_profit_pct : 8.0);
+      setFormHkTrailingStopPct(status.hk_trailing_stop_pct !== undefined ? status.hk_trailing_stop_pct : 0.0);
+      setFormHkMaxHoldDays(status.hk_max_hold_days !== undefined ? status.hk_max_hold_days : 0);
+      setFormHkDailyLossLimitHkd(status.hk_daily_loss_limit_hkd !== undefined ? status.hk_daily_loss_limit_hkd : 0.0);
+      
+      // HK ETF Settings
+      setFormHkEtfTradeQty(status.hk_etf_trade_qty !== undefined ? status.hk_etf_trade_qty : 100);
+      setFormHkEtfStopLossPct(status.hk_etf_stop_loss_pct !== undefined ? status.hk_etf_stop_loss_pct : 5.0);
+      setFormHkEtfTakeProfitPct(status.hk_etf_take_profit_pct !== undefined ? status.hk_etf_take_profit_pct : 8.0);
+      setFormHkEtfStrategy(status.hk_etf_strategy !== undefined ? status.hk_etf_strategy : "all");
 
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
@@ -810,7 +878,18 @@ export default function HongkongHome() {
           password: "",
           trade_pin: "",
           app_key: "",
-          app_secret: ""
+          app_secret: "",
+          // HK Risk Management
+          hk_stop_loss_pct: formHkStopLossPct,
+          hk_take_profit_pct: formHkTakeProfitPct,
+          hk_trailing_stop_pct: formHkTrailingStopPct,
+          hk_max_hold_days: formHkMaxHoldDays,
+          hk_daily_loss_limit_hkd: formHkDailyLossLimitHkd,
+          // HK ETF Settings
+          hk_etf_trade_qty: formHkEtfTradeQty,
+          hk_etf_stop_loss_pct: formHkEtfStopLossPct,
+          hk_etf_take_profit_pct: formHkEtfTakeProfitPct,
+          hk_etf_strategy: formHkEtfStrategy,
         })
       });
 
@@ -838,6 +917,10 @@ export default function HongkongHome() {
     setFormInterval(60);
     setFormHkFilterPriceLimit(20.0);
     setFormHkFilterPriceOperator("le");
+    setFormHkEtfTradeQty(500);
+    setFormHkEtfStopLossPct(5.0);
+    setFormHkEtfTakeProfitPct(8.0);
+    setFormHkEtfStrategy("all");
     showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $300 (สะสมสูงสุด 3 Slots) เรียบร้อยแล้วครับ", "info");
   };
 
@@ -1018,18 +1101,24 @@ export default function HongkongHome() {
     ? (unrealizedPnHkd / (netLiqHkd - unrealizedPnHkd)) * 100 
     : 0;
 
-  const filteredSignals = signals.filter(sig => {
-    const isMarketMatch = marketTab === 1 ? sig.symbol.endsWith('.HK') : !sig.symbol.endsWith('.HK');
-    if (!isMarketMatch) return false;
-    if (maxPrice !== "") {
-      const priceNum = parseFloat(maxPrice);
-      if (!isNaN(priceNum)) {
-        if (priceOperator === "ge" && sig.price < priceNum) return false;
-        if (priceOperator === "le" && sig.price > priceNum) return false;
+  const filteredSignals = useMemo(() => {
+    return signals.filter(sig => {
+      const isMarketMatch = marketTab === 1 ? sig.symbol.endsWith('.HK') : !sig.symbol.endsWith('.HK');
+      if (!isMarketMatch) return false;
+      if (maxPrice !== "") {
+        const priceNum = parseFloat(maxPrice);
+        if (!isNaN(priceNum)) {
+          if (priceOperator === "ge" && sig.price < priceNum) return false;
+          if (priceOperator === "le" && sig.price > priceNum) return false;
+        }
       }
-    }
-    return true;
-  });
+      if (searchQuery.trim() !== "") {
+        const query = searchQuery.trim().toLowerCase();
+        if (!sig.symbol.toLowerCase().includes(query)) return false;
+      }
+      return true;
+    });
+  }, [signals, marketTab, maxPrice, priceOperator, searchQuery]);
 
   return (
     <>
@@ -1058,7 +1147,7 @@ export default function HongkongHome() {
                 {cashHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
               <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Database size={10} /> ยอดสหรัฐฯ: ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                <Database size={10} /> เทียบเท่า: ${(cashHkd / 7.8).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
               </Typography>
             </CardContent>
           </Card>
@@ -1078,7 +1167,7 @@ export default function HongkongHome() {
                 {netLiqHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                ยอดสหรัฐฯ: ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                เทียบเท่า: ${(netLiqHkd / 7.8).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
               </Typography>
             </CardContent>
           </Card>
@@ -1109,7 +1198,7 @@ export default function HongkongHome() {
                   sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px' }}
                 />
                 <Typography variant="caption" color="text.secondary">
-                  ยอดสหรัฐฯ: {balance.unrealized_pnl >= 0 ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                  เทียบเท่า: {isProfitHk ? "+" : ""}${(unrealizedPnHkd / 7.8).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
                 </Typography>
               </Box>
             </CardContent>
@@ -1165,15 +1254,15 @@ export default function HongkongHome() {
             {/* Workspace Header */}
             <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
               <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : 'rgba(16, 185, 129, 0.06)', display: 'flex' }}>
-                  {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : <Activity size={20} color="#10b981" />}
+                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : workspaceTab === 2 ? 'rgba(16, 185, 129, 0.06)' : 'rgba(99, 102, 241, 0.06)', display: 'flex' }}>
+                  {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : workspaceTab === 2 ? <Activity size={20} color="#10b981" /> : <History size={20} color="#6366f1" />}
                 </Box>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
-                    {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : "พอร์ตโฟลิโอสินทรัพย์ฮ่องกง (Positions)"}
+                    {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : workspaceTab === 2 ? "พอร์ตโฟลิโอสินทรัพย์ฮ่องกง (Positions)" : "ประวัติการเทรดฮ่องกง (HK Trade History)"}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้"}
+                    {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : workspaceTab === 2 ? "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้" : "ประวัติธุรกรรมซื้อขายหลักทรัพย์ฮ่องกงย้อนหลังทั้งหมด"}
                   </Typography>
                 </Box>
               </Box>
@@ -1245,73 +1334,111 @@ export default function HongkongHome() {
                   >
                     <Save size={16} />
                   </IconButton>
-                  <Button
-                    variant="outlined"
-                    color="primary"
+                  {/* ช่องค้นหาหุ้น (Search Ticker) */}
+                  <TextField
                     size="small"
-                    disabled={actionLoading || !connected}
-                    onClick={handleOpenDrawer}
-                    startIcon={<ListPlus size={16} />}
-                    sx={{ 
-                      height: 34, 
-                      borderRadius: '8px', 
-                      fontSize: '0.78rem',
-                      px: 2,
-                      mr: 1.5,
-                      borderColor: 'rgba(59, 130, 246, 0.4)',
-                      color: '#3b82f6',
-                      '&:hover': {
-                        borderColor: '#3b82f6',
-                        bgcolor: 'rgba(59, 130, 246, 0.05)'
+                    placeholder="ค้นหาหุ้น (เช่น 0700)..."
+                    value={searchQuery}
+                    disabled={!isConfigInitialized || actionLoading}
+                    onChange={(e) => {
+                      setSearchQuery(e.target.value);
+                      setPage(0);
+                    }}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Search size={16} color="#94a3b8" />
+                          </InputAdornment>
+                        )
                       }
                     }}
-                  >
-                    จัดการรายการหุ้น (Watchlist)
-                  </Button>
-
-                  <Button
-                    variant="outlined"
-                    color="secondary"
-                    size="small"
-                    disabled={actionLoading || !connected}
-                    onClick={() => setSettingsDrawerOpen(true)}
-                    startIcon={<Settings size={16} />}
                     sx={{ 
-                      height: 34, 
-                      borderRadius: '8px', 
-                      fontSize: '0.78rem',
-                      px: 2,
+                      width: 240,
                       mr: 1.5,
-                      borderColor: 'rgba(99, 102, 241, 0.4)',
-                      color: '#a5b4fc',
-                      '&:hover': {
-                        borderColor: '#6366f1',
-                        bgcolor: 'rgba(99, 102, 241, 0.05)'
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: '8px',
+                        bgcolor: 'rgba(255,255,255,0.02)'
                       }
                     }}
-                  >
-                    ตั้งค่าบอท (Settings)
-                  </Button>
+                  />
 
-                  <Button
-                    variant="contained"
-                    color="secondary"
-                    size="small"
-                    disabled={isScanning || actionLoading || !connected}
-                    onClick={handleManualScan}
-                    sx={{ 
-                      height: 34, 
-                      borderRadius: '8px', 
-                      fontSize: '0.78rem',
-                      px: 2
-                    }}
-                  >
-                    {isScanning ? (
-                      <RefreshCw size={14} className="spin" />
-                    ) : (
-                      "สแกนสดทันที (Scan Now)"
-                    )}
-                  </Button>
+                  <Tooltip title="จัดการรายการหุ้น (Watchlist)" arrow>
+                    <span>
+                      <IconButton
+                        color="primary"
+                        size="small"
+                        disabled={actionLoading || !connected}
+                        onClick={handleOpenDrawer}
+                        sx={{ 
+                          height: 34, 
+                          width: 34,
+                          borderRadius: '8px', 
+                          mr: 1.5,
+                          border: '1px solid rgba(59, 130, 246, 0.4)',
+                          color: '#3b82f6',
+                          '&:hover': {
+                            borderColor: '#3b82f6',
+                            bgcolor: 'rgba(59, 130, 246, 0.05)'
+                          }
+                        }}
+                      >
+                        <ListPlus size={18} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="ตั้งค่าบอท (Settings)" arrow>
+                    <span>
+                      <IconButton
+                        color="secondary"
+                        size="small"
+                        disabled={actionLoading || !connected}
+                        onClick={() => setSettingsDrawerOpen(true)}
+                        sx={{ 
+                          height: 34, 
+                          width: 34,
+                          borderRadius: '8px', 
+                          mr: 1.5,
+                          border: '1px solid rgba(99, 102, 241, 0.4)',
+                          color: '#a5b4fc',
+                          '&:hover': {
+                            borderColor: '#6366f1',
+                            bgcolor: 'rgba(99, 102, 241, 0.05)'
+                          }
+                        }}
+                      >
+                        <Settings size={18} />
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+
+                  <Tooltip title="สแกนสดทันที (Scan Now)" arrow>
+                    <span>
+                      <IconButton
+                        color="secondary"
+                        size="small"
+                        disabled={isScanning || actionLoading || !connected}
+                        onClick={handleManualScan}
+                        sx={{ 
+                          height: 34, 
+                          width: 34,
+                          borderRadius: '8px',
+                          bgcolor: 'primary.main',
+                          color: 'white',
+                          '&:hover': {
+                            bgcolor: 'primary.dark'
+                          }
+                        }}
+                      >
+                        {isScanning ? (
+                          <RefreshCw size={18} className="spin" />
+                        ) : (
+                          <Play size={18} />
+                        )}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </Box>
               )}
             </Box>
@@ -1327,494 +1454,61 @@ export default function HongkongHome() {
                 <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
                 <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
                 <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+                <Tab label="📜 ประวัติการเทรด (Trade History)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
               </Tabs>
             </Box>
 
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              {/* Tab 1: Long Scanner */}
+              <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
               {workspaceTab === 0 && (
-                <>
-              
-              <Box sx={{ px: 3, pb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                  📊 กำลังแสดง <span style={{ color: '#3b82f6', fontWeight: 700 }}>{filteredSignals.length}</span> จากทั้งหมด <span style={{ fontWeight: 600 }}>{signals.filter(s => s.symbol.endsWith('.HK')).length}</span> หุ้นฮ่องกงในระบบสแกนเนอร์
-                </Typography>
-                {maxPrice && (
-                  <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600, bgcolor: 'rgba(16, 185, 129, 0.08)', px: 1.5, py: 0.4, borderRadius: '6px', border: '1px solid rgba(16, 185, 129, 0.15)' }}>
-                    คัดกรอง: ราคา {priceOperator === 'ge' ? '≥' : '≤'} {maxPrice} HKD
-                  </Typography>
-                )}
-              </Box>
-
-              <TableContainer>
-                <Table size="small">
-                  <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
-                    <TableRow>
-                      <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '28%' }}>หุ้น / บริษัท (Ticker & Company)</TableCell>
-                      <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '12%' }}>ราคาล่าสุด</TableCell>
-                      <TableCell align="left" sx={{ pl: 4, fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '25%' }}>ตัวชี้วัดทางเทคนิค (Technical Indicators)</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '20%' }}>ความสอดคล้องสัญญาณ (Confluence)</TableCell>
-                      <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {isSignalsLoading && filteredSignals.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
-                            <CircularProgress size={24} color="primary" />
-                            <Typography variant="body2" color="text.secondary">กำลังโหลดสัญญาณทางเทคนิคเรียลไทม์...</Typography>
-                          </Box>
-                        </TableCell>
-                      </TableRow>
-                    ) : filteredSignals.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                          {connected ? "ไม่มีข้อมูลหุ้นในระดับราคาที่เลือกขณะนี้" : "เซิร์ฟเวอร์ออฟไลน์ ไม่สามารถดึงข้อมูลสัญญาณได้"}
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      filteredSignals
-                        .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-                        .map((sig) => {
-                          const getConfluenceSignal = (smaSig: string, rsiSig: string, hybridSig: string) => {
-                            let score = 0;
-                            const parseVal = (sig: string) => {
-                              if (sig === "BUY") return 1;
-                              if (sig === "SELL") return -1;
-                              return 0;
-                            };
-                            score += parseVal(smaSig);
-                            score += parseVal(rsiSig);
-                            score += parseVal(hybridSig);
-                            
-                            if (score === 3) {
-                              return { label: "100% BUY", desc: "มติเอกฉันท์ซื้อ (3/3)", bgcolor: 'rgba(22, 199, 132, 0.15)', textcolor: '#16c784', border: '1px solid #16c784' };
-                            } else if (score === 2) {
-                              return { label: "67% BUY", desc: "แนวโน้มซื้อแข็งแกร่ง (2/3)", bgcolor: 'rgba(22, 199, 132, 0.08)', textcolor: '#16c784', border: '1px dashed rgba(22, 199, 132, 0.5)' };
-                            } else if (score === 1) {
-                              return { label: "33% BUY", desc: "สัญญาณซื้ออ่อน (1/3)", bgcolor: 'transparent', textcolor: '#16c784', border: '1px solid rgba(22, 199, 132, 0.25)' };
-                            } else if (score === -3) {
-                              return { label: "100% SELL", desc: "มติเอกฉันท์ขาย (3/3)", bgcolor: 'rgba(234, 57, 67, 0.15)', textcolor: '#ea3943', border: '1px solid #ea3943' };
-                            } else if (score === -2) {
-                              return { label: "67% SELL", desc: "แนวโน้มขายแข็งแกร่ง (2/3)", bgcolor: 'rgba(234, 57, 67, 0.08)', textcolor: '#ea3943', border: '1px dashed rgba(234, 57, 67, 0.5)' };
-                            } else if (score === -1) {
-                              return { label: "33% SELL", desc: "สัญญาณขายอ่อน (1/3)", bgcolor: 'transparent', textcolor: '#ea3943', border: '1px solid rgba(234, 57, 67, 0.25)' };
-                            } else {
-                              return { label: "NEUTRAL / HOLD", desc: "ไม่มีทิศทางชัดเจน (0/3)", bgcolor: 'rgba(148, 163, 184, 0.05)', textcolor: '#94a3b8', border: '1px solid rgba(148, 163, 184, 0.15)' };
-                            }
-                          };
-                          
-                          const conf = getConfluenceSignal(sig.sma_signal, sig.rsi_signal, sig.hybrid_signal);
-                          
-                          return (
-                            <TableRow key={sig.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                              <TableCell sx={{ py: 1.5 }}>
-                                <Typography sx={{ fontWeight: 800, color: 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                  {sig.symbol}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                  {STOCK_NAMES[sig.symbol] || (sig.symbol.endsWith('.HK') ? "Hong Kong Listed Company" : "US Listed Company")}
-                                </Typography>
-                              </TableCell>
-                              <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, py: 1.5 }}>
-                                {sig.price > 0 ? `HK$ ${sig.price.toFixed(2)}` : "N/A"}
-                              </TableCell>
-                              <TableCell align="left" sx={{ py: 1.5, pl: 4 }}>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.3 }}>
-                                  <Typography variant="body2" sx={{ fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 1 }}>
-                                    <span style={{ color: '#94a3b8', fontWeight: 600 }}>RSI (14):</span>
-                                    <span style={{ 
-                                      color: sig.rsi > 60 ? '#ea3943' : sig.rsi < 40 ? '#16c784' : '#94a3b8',
-                                      fontWeight: (sig.rsi > 60 || sig.rsi < 40) ? 700 : 500
-                                    }}>
-                                      {sig.rsi > 0 ? sig.rsi.toFixed(1) : "N/A"}
-                                    </span>
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)' }}>
-                                    SMA(10/30): {sig.sma_fast > 0 ? `HK$ ${sig.sma_fast.toFixed(2)} / HK$ ${sig.sma_slow.toFixed(2)}` : "N/A"}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell align="center" sx={{ py: 1.5 }}>
-                                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-                                  <Box sx={{ 
-                                    display: 'inline-block',
-                                    px: 1.5,
-                                    py: 0.5,
-                                    borderRadius: '6px',
-                                    bgcolor: conf.bgcolor,
-                                    color: conf.textcolor,
-                                    border: conf.border,
-                                    fontWeight: 800,
-                                    fontSize: '0.75rem',
-                                    letterSpacing: '0.02em',
-                                    boxShadow: conf.label.includes("100%") 
-                                      ? `0 0 12px ${conf.textcolor}20` 
-                                      : 'none'
-                                  }}>
-                                    {conf.label}
-                                  </Box>
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', fontWeight: 500 }}>
-                                    {conf.desc}
-                                  </Typography>
-                                </Box>
-                              </TableCell>
-                              <TableCell align="center" sx={{ py: 1.5 }}>
-                                <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                  <Button
-                                    variant="contained"
-                                    color="success"
-                                    size="small"
-                                    onClick={() => handleQuickTrade(sig.symbol, "BUY")}
-                                    disabled={actionLoading || !status.has_client || !connected}
-                                    sx={{ 
-                                      minWidth: 50, 
-                                      height: 28, 
-                                      fontSize: '0.72rem', 
-                                      borderRadius: '6px',
-                                      boxShadow: 'none',
-                                      '&:hover': { bgcolor: '#10b981' }
-                                    }}
-                                  >
-                                    BUY
-                                  </Button>
-                                  <Button
-                                    variant="contained"
-                                    color="error"
-                                    size="small"
-                                    onClick={() => handleQuickTrade(sig.symbol, "SELL")}
-                                    disabled={actionLoading || !status.has_client || !connected}
-                                    sx={{ 
-                                      minWidth: 50, 
-                                      height: 28, 
-                                      fontSize: '0.72rem', 
-                                      borderRadius: '6px',
-                                      boxShadow: 'none',
-                                      '&:hover': { bgcolor: '#ea3943' }
-                                    }}
-                                  >
-                                    SELL
-                                  </Button>
-                                </Box>
-                              </TableCell>
-                            </TableRow>
-                          );
-                        })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-
-                <TablePagination
-                  rowsPerPageOptions={[5, 10, 20, 50, 100]}
-                  component="div"
-                  count={filteredSignals.length}
-                  rowsPerPage={rowsPerPage}
-                  page={page}
-                  onPageChange={(_, newPage) => setPage(newPage)}
-                  onRowsPerPageChange={(e) => {
-                    setRowsPerPage(parseInt(e.target.value, 10));
-                    setPage(0);
-                  }}
-                  sx={{
-                    borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                    color: 'text.secondary',
-                    '.MuiTablePagination-selectIcon': {
-                      color: 'text.secondary'
-                    }
-                  }}
+                <LongScannerTab
+                  market="HK"
+                  filteredSignals={filteredSignals}
+                  signals={signals}
+                  onQuickTrade={handleQuickTrade}
+                  actionLoading={actionLoading}
+                  connected={connected}
+                  isSignalsLoading={isSignalsLoading}
+                  hasClient={status.has_client}
+                  maxPrice={maxPrice}
+                  priceOperator={priceOperator}
+                  stockNames={STOCK_NAMES}
                 />
-                </>
               )}
 
-              {/* Tab 2: Inverse ETFs — 5-column pro trader layout matching Tab 1 */}
               {workspaceTab === 1 && (
-                <>
-                  <Box sx={{ px: 3, py: 2, bgcolor: 'rgba(255,255,255,0.01)', borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
-                    <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 500 }}>
-                      📉 คู่ป้องกัน <span style={{ color: '#f43f5e', fontWeight: 700 }}>{etfData.length}</span> คู่ &mdash; สัญญาณ <span style={{ fontWeight: 600 }}>กลับทิศ</span>: หุ้นหลัก SELL = ETF ควร BUY
-                    </Typography>
-                  </Box>
-                  <TableContainer>
-                    <Table size="small">
-                      <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
-                        <TableRow>
-                          <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '22%' }}>Inverse ETF / หุ้นหลัก</TableCell>
-                          <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '12%' }}>ราคา ETF</TableCell>
-                          <TableCell align="left" sx={{ pl: 4, fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '24%' }}>สัญญาณหุ้นหลัก (Indicators)</TableCell>
-                          <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '27%' }}>แนะนำ ETF / สถานะพอร์ต</TableCell>
-                          <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em', width: '15%' }}>ซื้อขายด่วน (Quick Trade)</TableCell>
-                        </TableRow>
-                      </TableHead>
-                      <TableBody>
-                        {isSignalsLoading && etfData.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
-                              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 2 }}>
-                                <CircularProgress size={24} color="secondary" />
-                                <Typography variant="body2" color="text.secondary">กำลังโหลดข้อมูลจับคู่และราคากองทุน Inverse ETF...</Typography>
-                              </Box>
-                            </TableCell>
-                          </TableRow>
-                        ) : etfData.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={5} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                              ไม่มีข้อมูล Inverse ETF สำหรับตลาดนี้
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          etfData
-                            .slice(pageEtf * rowsPerPageEtf, pageEtf * rowsPerPageEtf + rowsPerPageEtf)
-                            .map((row) => {
-                            const hasPosition = row.owned_qty > 0;
-                            const isProfit = row.unrealized_pnl >= 0;
-                            const underlyingSig = signals.find(s => s.symbol === row.underlying);
-                            // Invert underlying signal → ETF recommendation
-                            const smaScore = underlyingSig ? (underlyingSig.sma_signal === 'SELL' ? 1 : underlyingSig.sma_signal === 'BUY' ? -1 : 0) : 0;
-                            const rsiScore = underlyingSig ? (underlyingSig.rsi_signal === 'SELL' ? 1 : underlyingSig.rsi_signal === 'BUY' ? -1 : 0) : 0;
-                            const hybScore = underlyingSig ? (underlyingSig.hybrid_signal === 'SELL' ? 1 : underlyingSig.hybrid_signal === 'BUY' ? -1 : 0) : 0;
-                            const etfScore = smaScore + rsiScore + hybScore;
-                            const confData = etfScore === 3
-                              ? { label: 'BUY ETF (3/3)', desc: 'มติเอกฉันท์ขาลง — ซื้อ ETF ทันที', bgcolor: 'rgba(22, 199, 132, 0.15)', textcolor: '#16c784', border: '1px solid #16c784' }
-                              : etfScore === 2
-                              ? { label: '67% BUY ETF', desc: 'แนวโน้ม ETF ขึ้นแข็งแกร่ง (2/3)', bgcolor: 'rgba(22, 199, 132, 0.08)', textcolor: '#16c784', border: '1px dashed rgba(22,199,132,0.5)' }
-                              : etfScore === 1
-                              ? { label: '33% BUY ETF', desc: 'สัญญาณซื้อ ETF อ่อน (1/3)', bgcolor: 'transparent', textcolor: '#16c784', border: '1px solid rgba(22,199,132,0.25)' }
-                              : etfScore === -3
-                              ? { label: 'SELL ETF (3/3)', desc: 'หุ้นหลักขึ้น — ขาย ETF ออก', bgcolor: 'rgba(234, 57, 67, 0.15)', textcolor: '#ea3943', border: '1px solid #ea3943' }
-                              : etfScore === -2
-                              ? { label: '67% SELL ETF', desc: 'ETF อ่อนแอ ระวังการถือ (2/3)', bgcolor: 'rgba(234, 57, 67, 0.08)', textcolor: '#ea3943', border: '1px dashed rgba(234,57,67,0.5)' }
-                              : etfScore === -1
-                              ? { label: '33% SELL ETF', desc: 'สัญญาณขาย ETF อ่อน (1/3)', bgcolor: 'transparent', textcolor: '#ea3943', border: '1px solid rgba(234,57,67,0.25)' }
-                              : { label: 'NEUTRAL / HOLD', desc: 'ไม่มีทิศทางชัดเจน', bgcolor: 'rgba(148,163,184,0.05)', textcolor: '#94a3b8', border: '1px solid rgba(148,163,184,0.15)' };
-                            const pnlPct = hasPosition && row.avg_price > 0 ? (row.unrealized_pnl / (row.avg_price * row.owned_qty) * 100) : null;
-                            return (
-                              <TableRow key={row.underlying} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                                {/* Col 1: ETF primary + underlying subtitle */}
-                                <TableCell sx={{ py: 1.5 }}>
-                                  <Typography sx={{ fontWeight: 800, color: 'secondary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                    {row.etf}
-                                  </Typography>
-                                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7' + 'rem', display: 'block', mt: 0.2 }}>
-                                    {STOCK_NAMES[row.etf] || 'Inverse Hedge ETF'}
-                                  </Typography>
-                                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.5, mt: 0.4, px: 0.8, py: 0.2, bgcolor: 'rgba(59,130,246,0.07)', borderRadius: '4px', border: '1px solid rgba(59,130,246,0.15)' }}>
-                                    <Typography sx={{ fontSize: '0.65rem', fontWeight: 700, color: 'primary.main' }}>
-                                      ↑ {row.underlying}
-                                    </Typography>
-                                    <Typography sx={{ fontSize: '0.65rem', color: '#64748b' }}>
-                                      HK$ {row.underlying_price.toFixed(2)}
-                                    </Typography>
-                                  </Box>
-                                </TableCell>
-                                {/* Col 2: ETF price */}
-                                <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600, fontSize: '0.88rem' }}>
-                                  HK$ {row.etf_price.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                                </TableCell>
-                                {/* Col 3: Underlying indicators (SMA / RSI / Hybrid) */}
-                                <TableCell align="left" sx={{ pl: 4, py: 1.5 }}>
-                                  {underlyingSig ? (
-                                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.4 }}>
-                                      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap' }}>
-                                        <Chip label={`SMA: ${underlyingSig.sma_signal}`} size="small" color={underlyingSig.sma_signal === 'SELL' ? 'error' : underlyingSig.sma_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
-                                        <Chip label={`RSI: ${underlyingSig.rsi_signal}`} size="small" color={underlyingSig.rsi_signal === 'SELL' ? 'error' : underlyingSig.rsi_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
-                                        <Chip label={`HYB: ${underlyingSig.hybrid_signal}`} size="small" color={underlyingSig.hybrid_signal === 'SELL' ? 'error' : underlyingSig.hybrid_signal === 'BUY' ? 'success' : 'default'} variant="outlined" sx={{ height: 20, fontSize: '0.68rem', fontWeight: 600 }} />
-                                      </Box>
-                                      <Typography variant="caption" sx={{ fontSize: '0.7rem', fontFamily: 'var(--font-mono)', color: 'text.secondary' }}>
-                                        RSI {underlyingSig.rsi.toFixed(1)} &nbsp;|&nbsp; SMA {underlyingSig.sma_fast > 0 ? `${underlyingSig.sma_fast.toFixed(2)}` : 'N/A'}
-                                      </Typography>
-                                    </Box>
-                                  ) : (
-                                    <Typography variant="caption" sx={{ color: '#475569', fontStyle: 'italic' }}>ไม่มีข้อมูล — เพิ่ม {row.underlying} ใน Watchlist</Typography>
-                                  )}
-                                </TableCell>
-                                {/* Col 4: ETF confluence + position summary */}
-                                <TableCell align="center" sx={{ py: 1.5 }}>
-                                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.6 }}>
-                                    <Box sx={{
-                                      display: 'inline-block', px: 1.5, py: 0.5, borderRadius: '6px',
-                                      bgcolor: confData.bgcolor, color: confData.textcolor, border: confData.border,
-                                      fontWeight: 800, fontSize: '0.75rem', letterSpacing: '0.02em',
-                                      boxShadow: confData.label.includes('3/3') ? `0 0 12px ${confData.textcolor}20` : 'none'
-                                    }}>
-                                      {confData.label}
-                                    </Box>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem' }}>
-                                      {confData.desc}
-                                    </Typography>
-                                    {hasPosition && (
-                                      <Box sx={{ display: 'flex', gap: 0.6, flexWrap: 'wrap', justifyContent: 'center', mt: 0.2 }}>
-                                        <Chip label={`${row.owned_qty} หุ้น`} size="small" color="primary" sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.68rem' }} />
-                                        <Chip
-                                          label={`${isProfit ? '+' : ''}${row.unrealized_pnl.toFixed(0)} HK$ (${pnlPct !== null ? `${pnlPct >= 0 ? '+' : ''}${pnlPct.toFixed(2)}%` : '-'})`}
-                                          size="small"
-                                          color={isProfit ? 'success' : 'error'}
-                                          sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.68rem', fontFamily: 'var(--font-mono)' }}
-                                        />
-                                      </Box>
-                                    )}
-                                  </Box>
-                                </TableCell>
-                                {/* Col 5: Quick trade */}
-                                <TableCell align="center" sx={{ py: 1.5 }}>
-                                  <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
-                                    <Button variant="contained" color="success" size="small"
-                                      onClick={() => handleQuickTrade(row.etf, 'BUY', row.etf.endsWith('.HK') ? formQtyHk : status.quantity)}
-                                      disabled={actionLoading || !status.has_client || !connected}
-                                      sx={{ minWidth: 50, height: 28, fontSize: '0.72rem', borderRadius: '6px', boxShadow: 'none', '&:hover': { bgcolor: '#10b981' } }}
-                                    >BUY</Button>
-                                    <Button variant="contained" color="error" size="small"
-                                      onClick={() => handleQuickTrade(row.etf, 'SELL', row.etf.endsWith('.HK') ? formQtyHk : status.quantity)}
-                                      disabled={actionLoading || !status.has_client || !connected}
-                                      sx={{ minWidth: 50, height: 28, fontSize: '0.72rem', borderRadius: '6px', boxShadow: 'none', '&:hover': { bgcolor: '#ea3943' } }}
-                                    >SELL</Button>
-                                  </Box>
-                                </TableCell>
-                              </TableRow>
-                            );
-                          })
-                        )}
-                      </TableBody>
-                    </Table>
-                  </TableContainer>
-
-                  <TablePagination
-                    rowsPerPageOptions={[5, 10, 20, 50, 100]}
-                    component="div"
-                    count={etfData.length}
-                    rowsPerPage={rowsPerPageEtf}
-                    page={pageEtf}
-                    onPageChange={(_, newPage) => setPageEtf(newPage)}
-                    onRowsPerPageChange={(e) => {
-                      setRowsPerPageEtf(parseInt(e.target.value, 10));
-                      setPageEtf(0);
-                    }}
-                    sx={{
-                      borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                      color: 'text.secondary',
-                      '.MuiTablePagination-selectIcon': {
-                        color: 'text.secondary'
-                      }
-                    }}
-                  />
-                </>
+                <InverseEtfsTab
+                  market="HK"
+                  etfData={etfData}
+                  signals={signals}
+                  onQuickTrade={handleQuickTrade}
+                  actionLoading={actionLoading}
+                  connected={connected}
+                  isSignalsLoading={isSignalsLoading}
+                  hasClient={status.has_client}
+                  stockNames={STOCK_NAMES}
+                  hkEtfQty={formHkEtfTradeQty}
+                  hkEtfStrategy={formHkEtfStrategy}
+                />
               )}
 
-              {/* Tab 3: Active Positions */}
               {workspaceTab === 2 && (
-                <>
-                  <TableContainer>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: 'rgba(255,255,255,0.02)' }}>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>หุ้น (Ticker)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>จำนวนหุ้น (Shares)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>ทุนเฉลี่ย (Avg Price)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>มูลค่าตลาด (Market Value)</TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>กำไร / ขาดทุน (P&L)</TableCell>
-                        <TableCell align="center" sx={{ fontWeight: 700, color: '#94a3b8', borderBottom: '1px solid rgba(255,255,255,0.08)', py: 1.5, fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.05em' }}>แอ็กชัน (Action)</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {(() => {
-                        const hkPositions = positions.filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK'));
-                        return hkPositions.length === 0 ? (
-                          <TableRow>
-                            <TableCell colSpan={6} align="center" sx={{ py: 8, color: 'text.secondary' }}>
-                              ไม่มีหุ้นถือครองอยู่ในพอร์ตโฟลิโอสำหรับตลาดนี้ขณะนี้
-                            </TableCell>
-                          </TableRow>
-                        ) : (
-                          hkPositions
-                            .slice(pagePos * rowsPerPagePos, pagePos * rowsPerPagePos + rowsPerPagePos)
-                            .map((pos) => {
-                              const posProfit = pos.unrealized_pnl >= 0;
-                              return (
-                                <TableRow key={pos.symbol} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                                  <TableCell sx={{ py: 1.5 }}>
-                                    <Typography sx={{ fontWeight: 800, color: ["7500.HK", "7552.HK"].includes(pos.symbol) ? 'secondary.main' : 'primary.main', fontSize: '0.9rem', lineHeight: 1.1 }}>
-                                      {pos.symbol}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', display: 'block', mt: 0.2 }}>
-                                       {STOCK_NAMES[pos.symbol] || (["7500.HK", "7552.HK"].includes(pos.symbol) ? "Inverse Hedge ETF" : "Hong Kong Listed Company")}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{pos.qty}</TableCell>
-                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.avg_price.toFixed(2)}</TableCell>
-                                  <TableCell align="right" sx={{ fontFamily: 'var(--font-mono)', fontWeight: 600 }}>HK$ {pos.market_value.toFixed(2)}</TableCell>
-                                  <TableCell align="right">
-                                    <Box sx={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 1 }}>
-                                      <Typography 
-                                        sx={{ 
-                                          color: posProfit ? 'success.main' : 'error.main',
-                                          fontWeight: 700,
-                                          fontFamily: 'var(--font-mono)'
-                                        }}
-                                      >
-                                        {posProfit ? "+" : ""}HK$ {pos.unrealized_pnl.toFixed(2)}
-                                      </Typography>
-                                      <Chip 
-                                        label={pos.avg_price > 0 ? `${posProfit ? "+" : ""}${(pos.unrealized_pnl / (pos.avg_price * pos.qty) * 100).toFixed(2)}%` : "0.00%"}
-                                        size="small"
-                                        color={posProfit ? "success" : "error"}
-                                        sx={{ fontWeight: 700, borderRadius: '6px', height: 20, fontSize: '0.7rem' }}
-                                      />
-                                    </Box>
-                                  </TableCell>
-                                  <TableCell align="center">
-                                    <Button
-                                      variant="contained"
-                                      color="error"
-                                      size="small"
-                                      onClick={() => handleQuickTrade(pos.symbol, "SELL", pos.qty)}
-                                      disabled={actionLoading || !status.has_client || !connected}
-                                      sx={{ 
-                                        minWidth: 60, 
-                                        height: 28, 
-                                        fontSize: '0.72rem', 
-                                        borderRadius: '6px',
-                                        boxShadow: 'none',
-                                        '&:hover': { bgcolor: '#ea3943' }
-                                      }}
-                                    >
-                                      SELL
-                                    </Button>
-                                  </TableCell>
-                                </TableRow>
-                              );
-                            })
-                        );
-                      })()}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                <ActivePositionsTab
+                  market="HK"
+                  positions={positions}
+                  onQuickTrade={handleQuickTrade}
+                  actionLoading={actionLoading}
+                  connected={connected}
+                  hasClient={status.has_client}
+                  stockNames={STOCK_NAMES}
+                />
+              )}
 
-                {(() => {
-                  const hkPositions = positions.filter(pos => marketTab === 1 ? pos.symbol.endsWith('.HK') : !pos.symbol.endsWith('.HK'));
-                  return hkPositions.length > 0 && (
-                    <TablePagination
-                      rowsPerPageOptions={[5, 10, 20, 50, 100]}
-                      component="div"
-                      count={hkPositions.length}
-                      rowsPerPage={rowsPerPagePos}
-                      page={pagePos}
-                      onPageChange={(_, newPage) => setPagePos(newPage)}
-                      onRowsPerPageChange={(e) => {
-                        setRowsPerPagePos(parseInt(e.target.value, 10));
-                        setPagePos(0);
-                      }}
-                      sx={{
-                        borderTop: '1px solid rgba(255, 255, 255, 0.05)',
-                        color: 'text.secondary',
-                        '.MuiTablePagination-selectIcon': {
-                          color: 'text.secondary'
-                        }
-                      }}
-                    />
-                  );
-                })()}
-                </>
+              {workspaceTab === 3 && (
+                <TradeHistoryTab
+                  market="HK"
+                  trades={trades}
+                  stockNames={STOCK_NAMES}
+                />
               )}
             </CardContent>
           </Card>
@@ -2346,7 +2040,373 @@ export default function HongkongHome() {
 
             <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
 
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
+            {/* HK Risk Management Section */}
+            <Box sx={{ p: 2.5, bgcolor: 'rgba(234, 57, 67, 0.03)', borderRadius: '12px', border: '1px solid rgba(234, 57, 67, 0.15)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ p: 0.8, borderRadius: '8px', bgcolor: 'rgba(234, 57, 67, 0.1)', display: 'flex' }}>
+                  <span style={{ fontSize: 14 }}>🛡️</span>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#ea3943', lineHeight: 1.2 }}>
+                    HK Risk Management
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ตั้งค่า 0 เพื่อปิดแต่ละฟีเจอร์
+                  </Typography>
+                </Box>
+              </Box>
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  fullWidth size="small"
+                  label="🛑 Stop Loss (%)"
+                  type="number"
+                  value={formHkStopLossPct}
+                  onChange={(e) => setFormHkStopLossPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkStopLossPct > 0 ? `ร่วง ${formHkStopLossPct}%` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkStopLossPct(prev => Math.max(0, prev - 0.5))}
+                            disabled={actionLoading || formHkStopLossPct <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkStopLossPct(prev => prev + 0.5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+                <TextField
+                  fullWidth size="small"
+                  label="✅ Take Profit (%)"
+                  type="number"
+                  value={formHkTakeProfitPct}
+                  onChange={(e) => setFormHkTakeProfitPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkTakeProfitPct > 0 ? `ขึ้น ${formHkTakeProfitPct}%` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkTakeProfitPct(prev => Math.max(0, prev - 0.5))}
+                            disabled={actionLoading || formHkTakeProfitPct <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkTakeProfitPct(prev => prev + 0.5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+                <TextField
+                  fullWidth size="small"
+                  label="📉 Trailing Stop (%)"
+                  type="number"
+                  value={formHkTrailingStopPct}
+                  onChange={(e) => setFormHkTrailingStopPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkTrailingStopPct > 0 ? `จาก peak ${formHkTrailingStopPct}%` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkTrailingStopPct(prev => Math.max(0, prev - 0.5))}
+                            disabled={actionLoading || formHkTrailingStopPct <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkTrailingStopPct(prev => prev + 0.5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+                <TextField
+                  fullWidth size="small"
+                  label="⏰ Max Hold (วัน)"
+                  type="number"
+                  value={formHkMaxHoldDays}
+                  onChange={(e) => setFormHkMaxHoldDays(Math.max(0, parseInt(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkMaxHoldDays > 0 ? `สูงสุด ${formHkMaxHoldDays} วัน` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkMaxHoldDays(prev => Math.max(0, prev - 1))}
+                            disabled={actionLoading || formHkMaxHoldDays <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkMaxHoldDays(prev => prev + 1)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+              </Box>
+              <TextField
+                fullWidth size="small"
+                label="⛔ Daily Loss Limit (HKD)"
+                type="number"
+                value={formHkDailyLossLimitHkd}
+                onChange={(e) => setFormHkDailyLossLimitHkd(Math.max(0, parseFloat(e.target.value) || 0))}
+                disabled={actionLoading}
+                helperText={formHkDailyLossLimitHkd > 0 ? `หยุด bot ถ้าขาดทุน > ${formHkDailyLossLimitHkd.toLocaleString()} HKD/วัน` : "ปิด"}
+                slotProps={{
+                  htmlInput: { min: 0, step: 100, style: { textAlign: 'center', fontWeight: 700 } },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkDailyLossLimitHkd(prev => Math.max(0, prev - 100))}
+                          disabled={actionLoading || formHkDailyLossLimitHkd <= 0}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Minus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkDailyLossLimitHkd(prev => prev + 100)}
+                          disabled={actionLoading}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Plus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                }}
+              />
+            </Box>
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
+
+            {/* HK ETF Settings Section */}
+            <Box sx={{ p: 2.5, bgcolor: 'rgba(99, 102, 241, 0.03)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.15)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ p: 0.8, borderRadius: '8px', bgcolor: 'rgba(99, 102, 241, 0.1)', display: 'flex' }}>
+                  <span style={{ fontSize: 14 }}>📈</span>
+                </Box>
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#a5b4fc', lineHeight: 1.2 }}>
+                    ตั้งค่าการซื้อขายและป้องกันความเสี่ยง ETF (HK ETF Settings)
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    ตั้งค่าเฉพาะสำหรับการเทรดหน่วยลงทุน ETF
+                  </Typography>
+                </Box>
+              </Box>
+
+              <TextField 
+                fullWidth
+                size="small"
+                label="จำนวนหน่วยซื้อ ETF เริ่มต้น (HK ETF Qty)"
+                type="number"
+                value={formHkEtfTradeQty}
+                onChange={(e) => setFormHkEtfTradeQty(Math.max(100, parseInt(e.target.value) || 100))}
+                slotProps={{ 
+                  htmlInput: { min: 100, step: 100, style: { textAlign: 'center', fontWeight: 700 } },
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkEtfTradeQty(prev => Math.max(100, prev - 100))}
+                          disabled={actionLoading || formHkEtfTradeQty <= 100}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Minus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setFormHkEtfTradeQty(prev => prev + 100)}
+                          disabled={actionLoading}
+                          sx={{ color: 'text.secondary', p: 0.5 }}
+                        >
+                          <Plus size={14} />
+                        </IconButton>
+                      </InputAdornment>
+                    )
+                  }
+                }}
+                required
+                disabled={actionLoading}
+              />
+
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
+                <TextField
+                  fullWidth size="small"
+                  label="🛑 ETF Stop Loss (%)"
+                  type="number"
+                  value={formHkEtfStopLossPct}
+                  onChange={(e) => setFormHkEtfStopLossPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkEtfStopLossPct > 0 ? `ร่วง ${formHkEtfStopLossPct}%` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkEtfStopLossPct(prev => Math.max(0, prev - 0.5))}
+                            disabled={actionLoading || formHkEtfStopLossPct <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkEtfStopLossPct(prev => prev + 0.5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+                <TextField
+                  fullWidth size="small"
+                  label="✅ ETF Take Profit (%)"
+                  type="number"
+                  value={formHkEtfTakeProfitPct}
+                  onChange={(e) => setFormHkEtfTakeProfitPct(Math.max(0, parseFloat(e.target.value) || 0))}
+                  disabled={actionLoading}
+                  helperText={formHkEtfTakeProfitPct > 0 ? `ขึ้น ${formHkEtfTakeProfitPct}%` : "ปิด"}
+                  slotProps={{
+                    htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkEtfTakeProfitPct(prev => Math.max(0, prev - 0.5))}
+                            disabled={actionLoading || formHkEtfTakeProfitPct <= 0}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Minus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setFormHkEtfTakeProfitPct(prev => prev + 0.5)}
+                            disabled={actionLoading}
+                            sx={{ color: 'text.secondary', p: 0.5 }}
+                          >
+                            <Plus size={14} />
+                          </IconButton>
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                />
+              </Box>
+
+              <FormControl fullWidth size="small">
+                <InputLabel>กลยุทธ์อ้างอิงสำหรับ ETF (ETF Strategy)</InputLabel>
+                <Select
+                  value={formHkEtfStrategy}
+                  label="กลยุทธ์อ้างอิงสำหรับ ETF (ETF Strategy)"
+                  onChange={(e) => setFormHkEtfStrategy(e.target.value)}
+                  disabled={actionLoading}
+                >
+                  <MenuItem value="all">Composite Score (รวมทุกอินดิเคเตอร์)</MenuItem>
+                  <MenuItem value="volume_ema">Volume Spike + EMA Breakout</MenuItem>
+                  <MenuItem value="sma">SMA Crossover</MenuItem>
+                  <MenuItem value="rsi">RSI Reversal</MenuItem>
+                  <MenuItem value="hybrid">SMA+RSI Hybrid</MenuItem>
+                </Select>
+              </FormControl>
+            </Box>
+
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
+
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
               📊 ตั้งค่าแท่งเทียนและกลยุทธ์ (Strategy & Timeframe)
             </Typography>
 
@@ -2355,13 +2415,22 @@ export default function HongkongHome() {
               <Select
                 value={formStrategy}
                 label="กลยุทธ์ส่งสัญญาณ (Strategy)"
-                onChange={(e) => setFormStrategy(e.target.value)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormStrategy(val);
+                  if (val === "volume_ema") {
+                    setFormPeriod("m15");
+                  } else if (val === "sma" || val === "hybrid") {
+                    setFormPeriod("d");
+                  }
+                }}
                 disabled={actionLoading}
                 sx={{ borderRadius: '8px' }}
               >
                 <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
                 <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
                 <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+                <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
               </Select>
             </FormControl>
 

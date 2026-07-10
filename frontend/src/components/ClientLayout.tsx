@@ -22,7 +22,7 @@ const darkTheme = createTheme({
   },
   shape: { borderRadius: 16 },
   typography: {
-    fontFamily: "Sarabun, var(--font-sans), ui-sans-serif, system-ui, -apple-system, sans-serif",
+    fontFamily: "var(--font-sans)",
     h6: { fontWeight: 800, letterSpacing: 0 },
     button: { textTransform: "none", fontWeight: 600, borderRadius: 10 },
     overline: { letterSpacing: 0, fontWeight: 700 },

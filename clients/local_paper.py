@@ -36,10 +36,24 @@ class LocalPaperTradingClient(BaseTradingClient):
                 "cash_hkd": self.initial_cash_hkd,
                 "currency_hkd": "HKD"
             },
-            "positions": {}, # Format: { "AAPL": { "qty": 10, "avg_price": 150.0 } }
+            "positions": {}, # Format: { "0700.HK": { "qty": 100, "avg_price": 350.0, "entry_time": "2026-07-10 09:00:00", "peak_price": 350.0 } }
             "transactions": [] # List of transaction logs
         }
         self._save_portfolio()
+
+    def _migrate_positions(self):
+        """Backward-compatible migration: เติม entry_time และ peak_price ให้ positions เดิมที่ยังไม่มีฟิลด์เหล่านี้"""
+        now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        changed = False
+        for symbol, pos in self.portfolio.get("positions", {}).items():
+            if "entry_time" not in pos:
+                pos["entry_time"] = now_str
+                changed = True
+            if "peak_price" not in pos:
+                pos["peak_price"] = pos.get("avg_price", 0.0)
+                changed = True
+        if changed:
+            self._save_portfolio()
 
     def _save_portfolio(self):
         with open(self.portfolio_file, 'w', encoding='utf-8') as f:
@@ -47,6 +61,8 @@ class LocalPaperTradingClient(BaseTradingClient):
 
     def login(self) -> bool:
         # Local paper trading doesn't need login, always succeeds
+        # Run migration on every login to ensure new fields exist
+        self._migrate_positions()
         return True
 
     def get_account_balance(self) -> dict:
@@ -225,7 +241,9 @@ class LocalPaperTradingClient(BaseTradingClient):
             
             self.portfolio["positions"][symbol] = {
                 "qty": new_qty,
-                "avg_price": new_avg
+                "avg_price": new_avg,
+                "entry_time": pos.get("entry_time") if prev_qty > 0 else datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "peak_price": pos.get("peak_price", new_avg) if prev_qty > 0 else new_avg,
             }
             
         elif action == "SELL":

@@ -11,23 +11,14 @@ import {
   Typography, 
   Box, 
   Alert, 
-  AlertTitle,
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow,
-  Chip
+  AlertTitle
 } from '@mui/material';
 
 import Header from 'frontend/components/Header';
 
 import { 
   Terminal, 
-  History, 
-  AlertCircle,
-  Clock
+  AlertCircle
 } from 'lucide-react';
 
 const API_BASE = "http://127.0.0.1:8484/api";
@@ -50,6 +41,8 @@ interface Trade {
   qty: number;
   price: number;
   status: string;
+  timestamp?: string;
+  total?: number;
 }
 
 const darkTheme = createTheme({
@@ -230,76 +223,6 @@ export default function LogsPage() {
                   })
                 )}
               </Box>
-            </CardContent>
-          </Card>
-
-          {/* Section 2: Trades history */}
-          <Card>
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              <Box sx={{ p: 3.5, display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(99, 102, 241, 0.08)', display: 'flex' }}>
-                  <History size={20} color="#6366f1" />
-                </Box>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    ประวัติรายการส่งคำสั่งซื้อขาย (Order Transmission History)
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">ตรวจสอบประวัติรายการออเดอร์เข้าซื้อหรือขายจากสแกนเนอร์บอท</Typography>
-                </Box>
-              </Box>
-
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>เวลาทำรายการ (Time)</TableCell>
-                      <TableCell>หุ้น (Ticker)</TableCell>
-                      <TableCell align="center">ประเภทคำสั่ง</TableCell>
-                      <TableCell align="right">จำนวนหุ้น (Qty)</TableCell>
-                      <TableCell align="right">ราคาเป้าหมาย (Price)</TableCell>
-                      <TableCell align="center">สถานะออเดอร์</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {trades.length === 0 ? (
-                      <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                          ไม่มีประวัติออเดอร์การซื้อขายในระบบในขณะนี้
-                        </TableCell>
-                      </TableRow>
-                    ) : (
-                      [...trades].reverse().map((trade, idx) => {
-                        const isBuy = trade.action === "BUY";
-                        return (
-                          <TableRow key={idx} hover sx={{ '&:hover': { bgcolor: 'rgba(255,255,255,0.02)' } }}>
-                            <TableCell sx={{ py: 1.5, display: 'flex', alignItems: 'center', gap: 1, color: 'text.secondary', fontSize: '0.85rem' }}>
-                              <Clock size={12} /> {trade.time}
-                            </TableCell>
-                            <TableCell sx={{ py: 1.5, fontWeight: 700, color: 'primary.main' }}>
-                              {trade.symbol}
-                            </TableCell>
-                            <TableCell align="center" sx={{ py: 1.5 }}>
-                              <Chip 
-                                label={trade.action}
-                                size="small"
-                                color={isBuy ? "success" : "error"}
-                                sx={{ fontWeight: 800, fontSize: '0.7rem', height: 20, borderRadius: '6px' }}
-                              />
-                            </TableCell>
-                            <TableCell align="right" sx={{ py: 1.5, fontFamily: 'var(--font-mono)', fontWeight: 600 }}>{trade.qty}</TableCell>
-                            <TableCell align="right" sx={{ py: 1.5, fontFamily: 'var(--font-mono)' }}>${trade.price.toFixed(2)}</TableCell>
-                            <TableCell align="center" sx={{ py: 1.5 }}>
-                              <Typography variant="body2" sx={{ fontWeight: 700, color: trade.status.toLowerCase() === "filled" ? 'success.main' : 'text.secondary' }}>
-                                {trade.status.toUpperCase()}
-                              </Typography>
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })
-                    )}
-                  </TableBody>
-                </Table>
-              </TableContainer>
             </CardContent>
           </Card>
 

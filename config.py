@@ -30,6 +30,24 @@ class Config:
     SIMULATED_INITIAL_CASH = 10000.0
     SIMULATED_INITIAL_CASH_HKD = 78000.0
     PORTFOLIO_FILE = "local_portfolio.json"
+
+    # ── HK Risk Management ──────────────────────────────────────────────────────
+    # Stop Loss: ตัดขาดทุนเมื่อราคาร่วงเกิน % จากต้นทุน (0 = ปิดใช้งาน)
+    HK_STOP_LOSS_PCT = 5.0
+    # Take Profit: ทำกำไรเมื่อราคาขึ้นเกิน % จากต้นทุน (0 = ปิดใช้งาน)
+    HK_TAKE_PROFIT_PCT = 8.0
+    # Trailing Stop: SL แบบลอยตาม peak ราคา (0 = ปิดใช้งาน)
+    HK_TRAILING_STOP_PCT = 0.0
+    # Max Hold Days: บังคับขายถ้าถือเกิน N วัน (0 = ปิดใช้งาน)
+    HK_MAX_HOLD_DAYS = 0
+    # Daily Loss Limit: หยุด HK bot วันนั้นถ้าขาดทุนเกิน N HKD (0 = ปิดใช้งาน)
+    HK_DAILY_LOSS_LIMIT_HKD = 0.0
+    
+    # HK ETF Settings
+    HK_ETF_TRADE_QTY = 100
+    HK_ETF_STOP_LOSS_PCT = 5.0
+    HK_ETF_TAKE_PROFIT_PCT = 8.0
+    HK_ETF_STRATEGY = "all"
     
     # Inverse ETF hedging configurations
     ENABLE_INVERSE_ETF_HEDGING = True
@@ -54,10 +72,24 @@ class Config:
         "XLE": "ERY",          # 2x Short Energy
         "GDX": "DUST",         # 2x Short Gold Miners
         "DIA": "SDOW",         # 3x Short Dow Jones
-        "0700.HK": "7500.HK",  # Hedge Tencent via Short Hang Seng Index
-        "9988.HK": "7500.HK",  # Hedge Alibaba via Short Hang Seng Index
-        "1810.HK": "7552.HK",  # Hedge Xiaomi via Short Hang Seng Tech Index
-        "3690.HK": "7552.HK",  # Hedge Meituan via Short Hang Seng Tech Index
+        
+        # Hong Kong Mappings to HSI/HSTECH Inverse ETFs
+        "0700.HK": "7500.HK",  # Tencent -> 2x Short HSI
+        "9988.HK": "7500.HK",  # Alibaba -> 2x Short HSI
+        "2318.HK": "7500.HK",  # Ping An -> 2x Short HSI
+        "0388.HK": "7500.HK",  # HKEX -> 2x Short HSI
+        "1299.HK": "7500.HK",  # AIA -> 2x Short HSI
+        "0005.HK": "7500.HK",  # HSBC -> 2x Short HSI
+        "0941.HK": "7500.HK",  # China Mobile -> 2x Short HSI
+        "3988.HK": "7500.HK",  # Bank of China -> 2x Short HSI
+        
+        "1810.HK": "7552.HK",  # Xiaomi -> 2x Short HSTECH
+        "3690.HK": "7552.HK",  # Meituan -> 2x Short HSTECH
+        "9618.HK": "7552.HK",  # JD.com -> 2x Short HSTECH
+        "1024.HK": "7552.HK",  # Kuaishou -> 2x Short HSTECH
+        "9888.HK": "7552.HK",  # Baidu -> 2x Short HSTECH
+        "2015.HK": "7552.HK",  # Li Auto -> 2x Short HSTECH
+        "1211.HK": "7552.HK",  # BYD -> 2x Short HSTECH
     }
 
     @classmethod
@@ -95,6 +127,17 @@ class Config:
         cls.SIMULATED_INITIAL_CASH = float(os.getenv("SIMULATED_INITIAL_CASH", "10000.0"))
         cls.SIMULATED_INITIAL_CASH_HKD = float(os.getenv("SIMULATED_INITIAL_CASH_HKD", str(cls.SIMULATED_INITIAL_CASH * 7.8)))
         cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
+        # HK Risk Management
+        cls.HK_STOP_LOSS_PCT = float(os.getenv("HK_STOP_LOSS_PCT", "5.0"))
+        cls.HK_TAKE_PROFIT_PCT = float(os.getenv("HK_TAKE_PROFIT_PCT", "8.0"))
+        cls.HK_TRAILING_STOP_PCT = float(os.getenv("HK_TRAILING_STOP_PCT", "0.0"))
+        cls.HK_MAX_HOLD_DAYS = int(os.getenv("HK_MAX_HOLD_DAYS", "0"))
+        cls.HK_DAILY_LOSS_LIMIT_HKD = float(os.getenv("HK_DAILY_LOSS_LIMIT_HKD", "0.0"))
+        # HK ETF Settings
+        cls.HK_ETF_TRADE_QTY = int(os.getenv("HK_ETF_TRADE_QTY", "100"))
+        cls.HK_ETF_STOP_LOSS_PCT = float(os.getenv("HK_ETF_STOP_LOSS_PCT", "5.0"))
+        cls.HK_ETF_TAKE_PROFIT_PCT = float(os.getenv("HK_ETF_TAKE_PROFIT_PCT", "8.0"))
+        cls.HK_ETF_STRATEGY = os.getenv("HK_ETF_STRATEGY", "all").lower()
 
     @classmethod
     def validate(cls):

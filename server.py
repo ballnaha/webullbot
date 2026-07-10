@@ -86,6 +86,8 @@ def init_bot_components():
             strategy_us = get_strategy("sma", fast_period=10, slow_period=30)
         elif Config.STRATEGY_US == "hybrid":
             strategy_us = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
+        elif Config.STRATEGY_US == "volume_ema":
+            strategy_us = get_strategy("volume_ema", fast_period=9, slow_period=21, vol_period=20, vol_factor=2.5)
         else:
             strategy_us = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
             
@@ -95,6 +97,8 @@ def init_bot_components():
             strategy_hk = get_strategy("sma", fast_period=10, slow_period=30)
         elif Config.STRATEGY_HK == "hybrid":
             strategy_hk = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
+        elif Config.STRATEGY_HK == "volume_ema":
+            strategy_hk = get_strategy("volume_ema", fast_period=9, slow_period=21, vol_period=20, vol_factor=2.5)
         else:
             strategy_hk = get_strategy("rsi", period=14, oversold=30.0, overbought=70.0)
             
@@ -103,8 +107,8 @@ def init_bot_components():
         hk_symbols = [s for s in Config.DEFAULT_SYMBOLS if s.endswith(".HK")]
             
         # Create bot orchestrators
-        bot_state["bot_us"] = TradingBot(client=client, strategy=strategy_us, symbols=us_symbols)
-        bot_state["bot_hk"] = TradingBot(client=client, strategy=strategy_hk, symbols=hk_symbols)
+        bot_state["bot_us"] = TradingBot(client=client, strategy=strategy_us, symbols=us_symbols, market="US")
+        bot_state["bot_hk"] = TradingBot(client=client, strategy=strategy_hk, symbols=hk_symbols, market="HK")
         add_system_log("Bot components successfully initialized for both US and HK markets!")
         
         # Initial data fetch
@@ -112,6 +116,10 @@ def init_bot_components():
         positions = client.get_positions()
         bot_state["latest_data"]["balance"] = balance
         bot_state["latest_data"]["positions"] = positions
+        
+        # Load transactions from client portfolio if local paper trading
+        if hasattr(client, "portfolio") and "transactions" in client.portfolio:
+            bot_state["latest_data"]["trades"] = client.portfolio["transactions"]
         
         return True, "Success"
     except Exception as e:
@@ -222,6 +230,17 @@ class ConfigModel(BaseModel):
     webull_api_region: Optional[str] = None
     simulated_initial_cash: Optional[float] = None
     simulated_initial_cash_hkd: Optional[float] = None
+    # HK Risk Management
+    hk_stop_loss_pct: Optional[float] = None
+    hk_take_profit_pct: Optional[float] = None
+    hk_trailing_stop_pct: Optional[float] = None
+    hk_max_hold_days: Optional[int] = None
+    hk_daily_loss_limit_hkd: Optional[float] = None
+    # HK ETF Settings
+    hk_etf_trade_qty: Optional[int] = 100
+    hk_etf_stop_loss_pct: Optional[float] = 5.0
+    hk_etf_take_profit_pct: Optional[float] = 8.0
+    hk_etf_strategy: Optional[str] = "all"
 
 class OrderModel(BaseModel):
     symbol: str
@@ -252,7 +271,18 @@ def get_status():
         "candle_period": Config.CANDLE_PERIOD,
         "simulated_initial_cash": Config.SIMULATED_INITIAL_CASH,
         "simulated_initial_cash_hkd": Config.SIMULATED_INITIAL_CASH_HKD,
-        "has_client": bot_state["client"] is not None
+        "has_client": bot_state["client"] is not None,
+        # HK Risk Management
+        "hk_stop_loss_pct": Config.HK_STOP_LOSS_PCT,
+        "hk_take_profit_pct": Config.HK_TAKE_PROFIT_PCT,
+        "hk_trailing_stop_pct": Config.HK_TRAILING_STOP_PCT,
+        "hk_max_hold_days": Config.HK_MAX_HOLD_DAYS,
+        "hk_daily_loss_limit_hkd": Config.HK_DAILY_LOSS_LIMIT_HKD,
+        # HK ETF Settings
+        "hk_etf_trade_qty": Config.HK_ETF_TRADE_QTY,
+        "hk_etf_stop_loss_pct": Config.HK_ETF_STOP_LOSS_PCT,
+        "hk_etf_take_profit_pct": Config.HK_ETF_TAKE_PROFIT_PCT,
+        "hk_etf_strategy": Config.HK_ETF_STRATEGY,
     }
 
 @app.get("/api/portfolio")
@@ -284,7 +314,7 @@ signals_cache = {
     "last_updated": 0.0
 }
 
-def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat):
+def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat, vol_ema_strat):
     import pandas as pd
     try:
         df = client.get_bars(symbol=symbol, interval=Config.CANDLE_PERIOD, limit=100)
@@ -297,7 +327,8 @@ def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat):
                 "sma_slow": 0.0,
                 "sma_signal": "N/A",
                 "rsi_signal": "N/A",
-                "hybrid_signal": "N/A"
+                "hybrid_signal": "N/A",
+                "volume_ema_signal": "N/A"
             }
         current_price = float(df['close'].iloc[-1])
         # SMA values
@@ -320,6 +351,7 @@ def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat):
         sma_sig = sma_strat.generate_signal(df)
         rsi_sig = rsi_strat.generate_signal(df)
         hybrid_sig = hybrid_strat.generate_signal(df)
+        vol_ema_sig = vol_ema_strat.generate_signal(df)
         
         return {
             "symbol": symbol,
@@ -329,7 +361,8 @@ def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat):
             "sma_slow": round(sma_slow_val, 2),
             "sma_signal": sma_sig,
             "rsi_signal": rsi_sig,
-            "hybrid_signal": hybrid_sig
+            "hybrid_signal": hybrid_sig,
+            "volume_ema_signal": vol_ema_sig
         }
     except Exception as e:
         return {
@@ -340,7 +373,8 @@ def fetch_single_signal(symbol, client, sma_strat, rsi_strat, hybrid_strat):
             "sma_slow": 0.0,
             "sma_signal": "ERROR",
             "rsi_signal": "ERROR",
-            "hybrid_signal": "ERROR"
+            "hybrid_signal": "ERROR",
+            "volume_ema_signal": "ERROR"
         }
 
 @app.get("/api/signals")
@@ -357,10 +391,12 @@ def get_signals():
     from strategies.sma_crossover import SMACrossoverStrategy
     from strategies.rsi_strategy import RSIStrategy
     from strategies.hybrid_strategy import SmaRsiHybridStrategy
+    from strategies.volume_ema_breakout import VolumeEmaBreakoutStrategy
     
     sma_strat = SMACrossoverStrategy(fast_period=10, slow_period=30)
     rsi_strat = RSIStrategy(period=14, oversold=30.0, overbought=70.0)
     hybrid_strat = SmaRsiHybridStrategy(fast_period=10, slow_period=30, rsi_period=14, oversold=40.0, overbought=60.0)
+    vol_ema_strat = VolumeEmaBreakoutStrategy(fast_period=9, slow_period=21, vol_period=20, vol_factor=2.5)
     
     client = bot_state["client"]
     if not client:
@@ -369,7 +405,7 @@ def get_signals():
         
     with ThreadPoolExecutor(max_workers=20) as executor:
         futures = [
-            executor.submit(fetch_single_signal, symbol, client, sma_strat, rsi_strat, hybrid_strat)
+            executor.submit(fetch_single_signal, symbol, client, sma_strat, rsi_strat, hybrid_strat, vol_ema_strat)
             for symbol in Config.DEFAULT_SYMBOLS
         ]
         signals_data = [f.result() for f in futures]
@@ -479,6 +515,29 @@ def update_config(data: ConfigModel):
                 sim_cash_hkd = data.simulated_initial_cash_hkd if data.simulated_initial_cash_hkd is not None else Config.SIMULATED_INITIAL_CASH_HKD
                 f.write(f"SIMULATED_INITIAL_CASH={sim_cash}\n")
                 f.write(f"SIMULATED_INITIAL_CASH_HKD={sim_cash_hkd}\n")
+                # HK Risk Management
+                hk_sl = data.hk_stop_loss_pct if data.hk_stop_loss_pct is not None else Config.HK_STOP_LOSS_PCT
+                hk_tp = data.hk_take_profit_pct if data.hk_take_profit_pct is not None else Config.HK_TAKE_PROFIT_PCT
+                hk_trail = data.hk_trailing_stop_pct if data.hk_trailing_stop_pct is not None else Config.HK_TRAILING_STOP_PCT
+                hk_hold = data.hk_max_hold_days if data.hk_max_hold_days is not None else Config.HK_MAX_HOLD_DAYS
+                hk_daily = data.hk_daily_loss_limit_hkd if data.hk_daily_loss_limit_hkd is not None else Config.HK_DAILY_LOSS_LIMIT_HKD
+                f.write(f"\n# HK Risk Management\n")
+                f.write(f"HK_STOP_LOSS_PCT={hk_sl}\n")
+                f.write(f"HK_TAKE_PROFIT_PCT={hk_tp}\n")
+                f.write(f"HK_TRAILING_STOP_PCT={hk_trail}\n")
+                f.write(f"HK_MAX_HOLD_DAYS={hk_hold}\n")
+                f.write(f"HK_DAILY_LOSS_LIMIT_HKD={hk_daily}\n")
+
+                # HK ETF Settings
+                hk_etf_qty = data.hk_etf_trade_qty if data.hk_etf_trade_qty is not None else Config.HK_ETF_TRADE_QTY
+                hk_etf_sl = data.hk_etf_stop_loss_pct if data.hk_etf_stop_loss_pct is not None else Config.HK_ETF_STOP_LOSS_PCT
+                hk_etf_tp = data.hk_etf_take_profit_pct if data.hk_etf_take_profit_pct is not None else Config.HK_ETF_TAKE_PROFIT_PCT
+                hk_etf_strat = data.hk_etf_strategy if data.hk_etf_strategy is not None else Config.HK_ETF_STRATEGY
+                f.write(f"\n# HK ETF Settings\n")
+                f.write(f"HK_ETF_TRADE_QTY={hk_etf_qty}\n")
+                f.write(f"HK_ETF_STOP_LOSS_PCT={hk_etf_sl}\n")
+                f.write(f"HK_ETF_TAKE_PROFIT_PCT={hk_etf_tp}\n")
+                f.write(f"HK_ETF_STRATEGY={hk_etf_strat.lower()}\n")
             
             # Force reload Config in-place
             Config.reload_values()
