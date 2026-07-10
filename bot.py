@@ -204,56 +204,166 @@ class TradingBot:
                 owned_position = pos_map.get(symbol)
                 owned_qty = owned_position["qty"] if owned_position else 0
 
+                # --- Automated ETF Hedging Block ---
+                is_hk = symbol.endswith(".HK")
+                enable_hedging = Config.ENABLE_INVERSE_ETF_HEDGING if is_hk else Config.US_ENABLE_INVERSE_ETF_HEDGING
+                
+                if enable_hedging:
+                    etf_symbol = Config.INVERSE_ETF_MAP.get(symbol)
+                    if etf_symbol:
+                        self.add_log(f"Evaluating ETF Hedging for {symbol} with ETF {etf_symbol}...")
+                        from strategies import get_strategy
+                        etf_strat_name = Config.HK_ETF_STRATEGY if is_hk else Config.US_ETF_STRATEGY
+                        etf_signal = "HOLD"
+                        try:
+                            if etf_strat_name == "all":
+                                sma_strat = get_strategy("sma")
+                                rsi_strat = get_strategy("rsi")
+                                hybrid_strat = get_strategy("hybrid")
+                                sma_sig = sma_strat.generate_signal(df)
+                                rsi_sig = rsi_strat.generate_signal(df)
+                                hyb_sig = hybrid_strat.generate_signal(df)
+                                
+                                sma_score = 1 if sma_sig == "SELL" else (-1 if sma_sig == "BUY" else 0)
+                                rsi_score = 1 if rsi_sig == "SELL" else (-1 if rsi_sig == "BUY" else 0)
+                                hyb_score = 1 if hyb_sig == "SELL" else (-1 if hyb_sig == "BUY" else 0)
+                                score = sma_score + rsi_score + hyb_score
+                                if score >= 2:
+                                    etf_signal = "BUY"
+                                elif score <= -2:
+                                    etf_signal = "SELL"
+                            else:
+                                if etf_strat_name in ["volume_ema", "sma", "rsi", "hybrid"]:
+                                    strat = get_strategy(etf_strat_name)
+                                else:
+                                    strat = self.strategy
+                                stock_sig = strat.generate_signal(df)
+                                if stock_sig == "SELL":
+                                    etf_signal = "BUY"
+                                elif stock_sig == "BUY":
+                                    etf_signal = "SELL"
+                            
+                            self.add_log(f"ETF signal for {etf_symbol} based on {symbol}: {etf_signal}")
+                            owned_etf_qty = pos_map.get(etf_symbol, {}).get("qty", 0)
+                            
+                            if etf_signal == "BUY":
+                                if is_hk:
+                                    slot_size = Config.HK_ETF_TRADE_QTY
+                                    current_etf_slots = int(owned_etf_qty / slot_size) if slot_size > 0 else 0
+                                    if current_etf_slots >= Config.HK_MAX_SLOTS:
+                                        self.add_log(f"Auto-Hedge is BUY for {etf_symbol} but already own max ETF slots ({current_etf_slots}/{Config.HK_MAX_SLOTS}). Skipping.")
+                                    else:
+                                        self.add_log(f"Auto-Hedge Signal: BUY {slot_size} shares of ETF {etf_symbol}...")
+                                        order_res = self.client.place_order(symbol=etf_symbol, qty=slot_size, action="BUY", order_type="MKT")
+                                        if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                            exec_price = order_res.get("price", 0.0)
+                                            self.add_log(f"SUCCESS: Auto-Hedge Bought {slot_size} shares of ETF {etf_symbol} at ${exec_price:.2f}")
+                                            self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": etf_symbol, "action": "BUY (HEDGE)", "qty": slot_size, "price": exec_price, "status": order_res.get("status")})
+                                        else:
+                                            self.add_log(f"FAILED to place Auto-Hedge BUY order for {etf_symbol}: {order_res.get('reason', 'Unknown reason')}")
+                                else:
+                                    # US ETF Hedging BUY
+                                    if owned_etf_qty > 0:
+                                        self.add_log(f"Auto-Hedge is BUY for US ETF {etf_symbol} but already own {owned_etf_qty} shares. Skipping.")
+                                    else:
+                                        etf_curr_price = current_price
+                                        try:
+                                            etf_df = self.client.get_bars(symbol=etf_symbol, interval=self.candle_period, limit=1)
+                                            if not etf_df.empty:
+                                                etf_curr_price = float(etf_df["close"].iloc[-1])
+                                        except Exception:
+                                            pass
+                                        
+                                        slot_size = round(float(Config.US_ETF_BUDGET) / etf_curr_price, 4) if etf_curr_price > 0 else 0
+                                        if slot_size <= 0:
+                                            self.add_log(f"Auto-Hedge is BUY for US ETF {etf_symbol} but calculated quantity is {slot_size}. Skipping.")
+                                        else:
+                                            self.add_log(f"Auto-Hedge Signal: BUY {slot_size} shares of US ETF {etf_symbol} (Budget: ${Config.US_ETF_BUDGET})...")
+                                            order_res = self.client.place_order(symbol=etf_symbol, qty=slot_size, action="BUY", order_type="MKT")
+                                            if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                                exec_price = order_res.get("price", etf_curr_price)
+                                                self.add_log(f"SUCCESS: Auto-Hedge Bought {slot_size} shares of ETF {etf_symbol} at ${exec_price:.2f}")
+                                                self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": etf_symbol, "action": "BUY (HEDGE)", "qty": slot_size, "price": exec_price, "status": order_res.get("status")})
+                                            else:
+                                                self.add_log(f"FAILED to place Auto-Hedge BUY order for {etf_symbol}: {order_res.get('reason', 'Unknown reason')}")
+                            
+                            elif etf_signal == "SELL":
+                                if owned_etf_qty <= 0:
+                                    self.add_log(f"Auto-Hedge is SELL but do not own any shares of ETF {etf_symbol}. Skipping.")
+                                else:
+                                    self.add_log(f"Auto-Hedge Signal: SELL {owned_etf_qty} shares of ETF {etf_symbol} to close hedge...")
+                                    order_res = self.client.place_order(symbol=etf_symbol, qty=owned_etf_qty, action="SELL", order_type="MKT")
+                                    if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                        exec_price = order_res.get("price", 0.0)
+                                        self.add_log(f"SUCCESS: Auto-Hedge Sold {owned_etf_qty} shares of ETF {etf_symbol} at ${exec_price:.2f}")
+                                        self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": etf_symbol, "action": "SELL (HEDGE)", "qty": owned_etf_qty, "price": exec_price, "status": order_res.get("status")})
+                                    else:
+                                        self.add_log(f"FAILED to place Auto-Hedge SELL order for {etf_symbol}: {order_res.get('reason', 'Unknown reason')}")
+                        except Exception as ex:
+                            self.add_log(f"Error executing ETF Hedge logic: {ex}")
+                # --- End ETF Hedging Block ---
+
                 if signal == "BUY":
-                    if symbol.endswith(".HK"):
-                        slot_size = min(self.trade_qty_hk, Config.HK_MAX_QTY_PER_SLOT)
-                        current_slots = int(owned_qty / slot_size) if slot_size > 0 else 0
-                        if current_slots >= Config.HK_MAX_SLOTS:
-                            self.add_log(f"Signal is BUY for {symbol} but already own {owned_qty} shares ({current_slots}/{Config.HK_MAX_SLOTS} slots). Skipping.")
-                        elif current_price > Config.HK_FILTER_PRICE_LIMIT:
-                            self.add_log(f"Signal is BUY for {symbol} but current price ${current_price:.2f} is above target filter price limit ${Config.HK_FILTER_PRICE_LIMIT:.2f}. Skipping.")
+                    if is_hk:
+                        if not Config.HK_AUTO_LONG:
+                            self.add_log(f"Signal is BUY for HK stock {symbol} but HK Auto-Long is disabled. Skipping stock order.")
                         else:
-                            qty_to_trade = slot_size
-                            if qty_to_trade <= 0:
-                                self.add_log(f"Signal is BUY for {symbol} but slot quantity size is {qty_to_trade}. Skipping.")
+                            slot_size = min(self.trade_qty_hk, Config.HK_MAX_QTY_PER_SLOT)
+                            current_slots = int(owned_qty / slot_size) if slot_size > 0 else 0
+                            if current_slots >= Config.HK_MAX_SLOTS:
+                                self.add_log(f"Signal is BUY for {symbol} but already own {owned_qty} shares ({current_slots}/{Config.HK_MAX_SLOTS} slots). Skipping.")
+                            elif current_price > Config.HK_FILTER_PRICE_LIMIT:
+                                self.add_log(f"Signal is BUY for {symbol} but current price ${current_price:.2f} is above target filter price limit ${Config.HK_FILTER_PRICE_LIMIT:.2f}. Skipping.")
                             else:
-                                self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})...")
-                                order_res = self.client.place_order(symbol=symbol, qty=qty_to_trade, action="BUY", order_type="MKT")
-                                if order_res.get("status") in ["FILLED", "SUBMITTED"]:
-                                    exec_price = order_res.get("price", current_price)
-                                    self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})")
-                                    self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "BUY", "qty": qty_to_trade, "price": exec_price, "status": order_res.get("status")})
+                                qty_to_trade = slot_size
+                                if qty_to_trade <= 0:
+                                    self.add_log(f"Signal is BUY for {symbol} but slot quantity size is {qty_to_trade}. Skipping.")
                                 else:
-                                    self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
+                                    self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})...")
+                                    order_res = self.client.place_order(symbol=symbol, qty=qty_to_trade, action="BUY", order_type="MKT")
+                                    if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                        exec_price = order_res.get("price", current_price)
+                                        self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f} (Slot {current_slots + 1}/{Config.HK_MAX_SLOTS})")
+                                        self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "BUY", "qty": qty_to_trade, "price": exec_price, "status": order_res.get("status")})
+                                    else:
+                                        self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
                     else:
-                        if owned_qty > 0:
-                            self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
+                        if not Config.US_AUTO_LONG:
+                            self.add_log(f"Signal is BUY for US stock {symbol} but US Auto-Long is disabled. Skipping stock order.")
                         else:
-                            qty_to_trade = round(float(self.trade_qty_us) / current_price, 4) if current_price > 0 else 0
-                            if qty_to_trade <= 0:
-                                self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")
+                            if owned_qty > 0:
+                                self.add_log(f"Signal is BUY but already own {owned_qty} shares of {symbol}. Skipping.")
                             else:
-                                self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Budget: ${self.trade_qty_us})...")
-                                order_res = self.client.place_order(symbol=symbol, qty=qty_to_trade, action="BUY", order_type="MKT")
-                                if order_res.get("status") in ["FILLED", "SUBMITTED"]:
-                                    exec_price = order_res.get("price", current_price)
-                                    self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f}")
-                                    self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "BUY", "qty": qty_to_trade, "price": exec_price, "status": order_res.get("status")})
+                                qty_to_trade = round(float(self.trade_qty_us) / current_price, 4) if current_price > 0 else 0
+                                if qty_to_trade <= 0:
+                                    self.add_log(f"Signal is BUY for {symbol} but calculated trade quantity is {qty_to_trade}. Skipping.")
                                 else:
-                                    self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
+                                    self.add_log(f"Signal: BUY {qty_to_trade} shares of {symbol} (Budget: ${self.trade_qty_us})...")
+                                    order_res = self.client.place_order(symbol=symbol, qty=qty_to_trade, action="BUY", order_type="MKT")
+                                    if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                        exec_price = order_res.get("price", current_price)
+                                        self.add_log(f"SUCCESS: Bought {qty_to_trade} shares of {symbol} at ${exec_price:.2f}")
+                                        self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "BUY", "qty": qty_to_trade, "price": exec_price, "status": order_res.get("status")})
+                                    else:
+                                        self.add_log(f"FAILED to place BUY order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
 
                 elif signal == "SELL":
                     if owned_qty <= 0:
                         self.add_log(f"Signal is SELL but do not own any shares of {symbol}. Skipping.")
                     else:
-                        self.add_log(f"Signal: SELL {owned_qty} shares of {symbol}...")
-                        order_res = self.client.place_order(symbol=symbol, qty=owned_qty, action="SELL", order_type="MKT")
-                        if order_res.get("status") in ["FILLED", "SUBMITTED"]:
-                            exec_price = order_res.get("price", current_price)
-                            self.add_log(f"SUCCESS: Sold {owned_qty} shares of {symbol} at ${exec_price:.2f}")
-                            self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "SELL", "qty": owned_qty, "price": exec_price, "status": order_res.get("status")})
+                        if is_hk and not Config.HK_AUTO_LONG:
+                            self.add_log(f"Signal is SELL for HK stock {symbol} but HK Auto-Long is disabled. Skipping stock order.")
+                        elif not is_hk and not Config.US_AUTO_LONG:
+                            self.add_log(f"Signal is SELL for US stock {symbol} but US Auto-Long is disabled. Skipping stock order.")
                         else:
-                            self.add_log(f"FAILED to place SELL order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
+                            self.add_log(f"Signal: SELL {owned_qty} shares of {symbol}...")
+                            order_res = self.client.place_order(symbol=symbol, qty=owned_qty, action="SELL", order_type="MKT")
+                            if order_res.get("status") in ["FILLED", "SUBMITTED"]:
+                                exec_price = order_res.get("price", current_price)
+                                self.add_log(f"SUCCESS: Sold {owned_qty} shares of {symbol} at ${exec_price:.2f}")
+                                self.trades_history.append({"time": datetime.now().strftime("%H:%M:%S"), "symbol": symbol, "action": "SELL", "qty": owned_qty, "price": exec_price, "status": order_res.get("status")})
+                            else:
+                                self.add_log(f"FAILED to place SELL order for {symbol}: {order_res.get('reason', 'Unknown reason')}")
 
             updated_balance = self.client.get_account_balance()
             updated_positions = self.client.get_positions()

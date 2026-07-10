@@ -42,6 +42,13 @@ class Config:
     HK_MAX_HOLD_DAYS = 0
     # Daily Loss Limit: หยุด HK bot วันนั้นถ้าขาดทุนเกิน N HKD (0 = ปิดใช้งาน)
     HK_DAILY_LOSS_LIMIT_HKD = 0.0
+    HK_AUTO_LONG = True
+    
+    # US ETF Settings
+    US_AUTO_LONG = True
+    US_ENABLE_INVERSE_ETF_HEDGING = True
+    US_ETF_BUDGET = 300.0
+    US_ETF_STRATEGY = "standard"
     
     # HK ETF Settings
     HK_ETF_TRADE_QTY = 100
@@ -133,6 +140,12 @@ class Config:
         cls.HK_TRAILING_STOP_PCT = float(os.getenv("HK_TRAILING_STOP_PCT", "0.0"))
         cls.HK_MAX_HOLD_DAYS = int(os.getenv("HK_MAX_HOLD_DAYS", "0"))
         cls.HK_DAILY_LOSS_LIMIT_HKD = float(os.getenv("HK_DAILY_LOSS_LIMIT_HKD", "0.0"))
+        cls.HK_AUTO_LONG = os.getenv("HK_AUTO_LONG", "TRUE").upper() == "TRUE"
+        cls.US_AUTO_LONG = os.getenv("US_AUTO_LONG", "TRUE").upper() == "TRUE"
+        cls.US_ENABLE_INVERSE_ETF_HEDGING = os.getenv("US_ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
+        cls.US_ETF_BUDGET = float(os.getenv("US_ETF_BUDGET", "300.0"))
+        cls.US_ETF_STRATEGY = os.getenv("US_ETF_STRATEGY", "standard").lower()
+        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
         # HK ETF Settings
         cls.HK_ETF_TRADE_QTY = int(os.getenv("HK_ETF_TRADE_QTY", "100"))
         cls.HK_ETF_STOP_LOSS_PCT = float(os.getenv("HK_ETF_STOP_LOSS_PCT", "5.0"))

@@ -55,6 +55,8 @@ interface BotStatus {
   simulated_initial_cash?: number;
   simulated_initial_cash_hkd?: number;
   has_client: boolean;
+  init_status?: string;
+  init_error?: string;
   // HK Risk Management
   hk_stop_loss_pct?: number;
   hk_take_profit_pct?: number;
@@ -163,23 +165,8 @@ export default function SettingsPage() {
 
   // Config form state
   const [formMode, setFormMode] = useState("LOCAL_PAPER");
-  const [formUsSymbols, setFormUsSymbols] = useState("");
-  const [formHkSymbols, setFormHkSymbols] = useState("");
-  const [formQty, setFormQty] = useState(1);
-  const [formInterval, setFormInterval] = useState(60);
-  const [formPeriod, setFormPeriod] = useState("m5");
-  const [formStrategyUs, setFormStrategyUs] = useState("sma");
-  const [formStrategyHk, setFormStrategyHk] = useState("sma");
-  const [formHkFilterPriceLimit, setFormHkFilterPriceLimit] = useState(20.0);
-  const [formHkFilterPriceOperator, setFormHkFilterPriceOperator] = useState("le");
   const [formSimulatedInitialCash, setFormSimulatedInitialCash] = useState<number>(300);
   const [formSimulatedInitialCashHkd, setFormSimulatedInitialCashHkd] = useState<number>(2340);
-  // HK Risk Management States
-  const [formHkStopLossPct, setFormHkStopLossPct] = useState<number>(5.0);
-  const [formHkTakeProfitPct, setFormHkTakeProfitPct] = useState<number>(8.0);
-  const [formHkTrailingStopPct, setFormHkTrailingStopPct] = useState<number>(0.0);
-  const [formHkMaxHoldDays, setFormHkMaxHoldDays] = useState<number>(0);
-  const [formHkDailyLossLimitHkd, setFormHkDailyLossLimitHkd] = useState<number>(0.0);
   const [isConfigInitialized, setIsConfigInitialized] = useState(false);
 
   // Credentials config inputs
@@ -213,24 +200,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (!isConfigInitialized && status.trade_mode !== "") {
       setFormMode(status.trade_mode);
-      const us = status.symbols.filter(s => !s.endsWith('.HK')).join(", ");
-      const hk = status.symbols.filter(s => s.endsWith('.HK')).join(", ");
-      setFormUsSymbols(us);
-      setFormHkSymbols(hk);
-      setFormQty(status.quantity);
-      setFormInterval(status.interval);
-      setFormPeriod(status.candle_period);
-      setFormStrategyUs(status.strategy_us !== undefined ? status.strategy_us : "sma");
-      setFormStrategyHk(status.strategy_hk !== undefined ? status.strategy_hk : "sma");
-      setFormHkFilterPriceLimit(status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0);
-      setFormHkFilterPriceOperator(status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le");
       setFormSimulatedInitialCash(status.simulated_initial_cash !== undefined ? status.simulated_initial_cash : 300);
       setFormSimulatedInitialCashHkd(status.simulated_initial_cash_hkd !== undefined ? status.simulated_initial_cash_hkd : 2340);
-      setFormHkStopLossPct(status.hk_stop_loss_pct !== undefined ? status.hk_stop_loss_pct : 5.0);
-      setFormHkTakeProfitPct(status.hk_take_profit_pct !== undefined ? status.hk_take_profit_pct : 8.0);
-      setFormHkTrailingStopPct(status.hk_trailing_stop_pct !== undefined ? status.hk_trailing_stop_pct : 0.0);
-      setFormHkMaxHoldDays(status.hk_max_hold_days !== undefined ? status.hk_max_hold_days : 0);
-      setFormHkDailyLossLimitHkd(status.hk_daily_loss_limit_hkd !== undefined ? status.hk_daily_loss_limit_hkd : 0.0);
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -239,45 +210,27 @@ export default function SettingsPage() {
     e.preventDefault();
     setActionLoading(true);
 
-    const usList = formUsSymbols
-      .split(",")
-      .map(s => s.trim().toUpperCase())
-      .filter(s => s.length > 0);
-
-    const hkList = formHkSymbols
-      .split(",")
-      .map(s => {
-        let sym = s.trim().toUpperCase();
-        if (sym.length > 0 && !sym.endsWith(".HK")) {
-          sym += ".HK";
-        }
-        return sym;
-      })
-      .filter(s => s.length > 0);
-
-    const combinedSymbols = [...usList, ...hkList];
-
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           trade_mode: formMode,
-          symbols: combinedSymbols,
-          quantity: formQty,
-          interval: formInterval,
-          candle_period: formPeriod,
-          strategy_us: formStrategyUs,
-          strategy_hk: formStrategyHk,
-          hk_filter_price_limit: formHkFilterPriceLimit,
-          hk_filter_price_operator: formHkFilterPriceOperator,
+          symbols: status.symbols,
+          quantity: status.quantity !== undefined ? status.quantity : 1,
+          interval: status.interval !== undefined ? status.interval : 60,
+          candle_period: status.candle_period !== undefined ? status.candle_period : "m5",
+          strategy_us: status.strategy_us !== undefined ? status.strategy_us : "sma",
+          strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : "sma",
+          hk_filter_price_limit: status.hk_filter_price_limit !== undefined ? status.hk_filter_price_limit : 20.0,
+          hk_filter_price_operator: status.hk_filter_price_operator !== undefined ? status.hk_filter_price_operator : "le",
           simulated_initial_cash: formSimulatedInitialCash,
           simulated_initial_cash_hkd: formSimulatedInitialCashHkd,
-          hk_stop_loss_pct: formHkStopLossPct,
-          hk_take_profit_pct: formHkTakeProfitPct,
-          hk_trailing_stop_pct: formHkTrailingStopPct,
-          hk_max_hold_days: formHkMaxHoldDays,
-          hk_daily_loss_limit_hkd: formHkDailyLossLimitHkd,
+          hk_stop_loss_pct: status.hk_stop_loss_pct !== undefined ? status.hk_stop_loss_pct : 5.0,
+          hk_take_profit_pct: status.hk_take_profit_pct !== undefined ? status.hk_take_profit_pct : 8.0,
+          hk_trailing_stop_pct: status.hk_trailing_stop_pct !== undefined ? status.hk_trailing_stop_pct : 0.0,
+          hk_max_hold_days: status.hk_max_hold_days !== undefined ? status.hk_max_hold_days : 0,
+          hk_daily_loss_limit_hkd: status.hk_daily_loss_limit_hkd !== undefined ? status.hk_daily_loss_limit_hkd : 0.0,
           username: formUsername,
           password: formPassword,
           trade_pin: formTradePin,
@@ -305,24 +258,8 @@ export default function SettingsPage() {
             setStatus(freshStatus);
             // Directly sync form from fresh server values
             setFormMode(freshStatus.trade_mode);
-            const us = (freshStatus.symbols || []).filter((s: string) => !s.endsWith('.HK')).join(", ");
-            const hk = (freshStatus.symbols || []).filter((s: string) => s.endsWith('.HK')).join(", ");
-            setFormUsSymbols(us);
-            setFormHkSymbols(hk);
-            setFormQty(freshStatus.quantity);
-            setFormInterval(freshStatus.interval);
-            setFormPeriod(freshStatus.candle_period);
-            setFormStrategyUs(freshStatus.strategy_us !== undefined ? freshStatus.strategy_us : "sma");
-            setFormStrategyHk(freshStatus.strategy_hk !== undefined ? freshStatus.strategy_hk : "sma");
-            setFormHkFilterPriceLimit(freshStatus.hk_filter_price_limit !== undefined ? freshStatus.hk_filter_price_limit : 20.0);
-            setFormHkFilterPriceOperator(freshStatus.hk_filter_price_operator !== undefined ? freshStatus.hk_filter_price_operator : "le");
             setFormSimulatedInitialCash(freshStatus.simulated_initial_cash !== undefined ? freshStatus.simulated_initial_cash : 300);
             setFormSimulatedInitialCashHkd(freshStatus.simulated_initial_cash_hkd !== undefined ? freshStatus.simulated_initial_cash_hkd : 2340);
-            setFormHkStopLossPct(freshStatus.hk_stop_loss_pct !== undefined ? freshStatus.hk_stop_loss_pct : 5.0);
-            setFormHkTakeProfitPct(freshStatus.hk_take_profit_pct !== undefined ? freshStatus.hk_take_profit_pct : 8.0);
-            setFormHkTrailingStopPct(freshStatus.hk_trailing_stop_pct !== undefined ? freshStatus.hk_trailing_stop_pct : 0.0);
-            setFormHkMaxHoldDays(freshStatus.hk_max_hold_days !== undefined ? freshStatus.hk_max_hold_days : 0);
-            setFormHkDailyLossLimitHkd(freshStatus.hk_daily_loss_limit_hkd !== undefined ? freshStatus.hk_daily_loss_limit_hkd : 0.0);
           }
         } catch (_) { /* silent */ }
         setIsConfigInitialized(true);
@@ -357,6 +294,20 @@ export default function SettingsPage() {
             <form onSubmit={handleSaveConfig}>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3.5 }}>
                 
+                {status.init_status === "initializing" && (
+                  <Alert severity="info" sx={{ borderRadius: '12px', border: '1px solid rgba(59, 130, 246, 0.15)', bgcolor: 'rgba(59, 130, 246, 0.05)' }}>
+                    <AlertTitle sx={{ fontWeight: 700 }}>กำลังเชื่อมต่อระบบและตั้งค่าบอท (Initializing...)</AlertTitle>
+                    ระบบหลังบ้านกำลังดำเนินการล็อกอินเข้าสู่ระบบและโหลดค่าบัญชีของคุณในพื้นหลัง กรุณารอสักครู่...
+                  </Alert>
+                )}
+
+                {status.init_status === "failed" && (
+                  <Alert severity="error" sx={{ borderRadius: '12px', border: '1px solid rgba(234, 57, 67, 0.15)', bgcolor: 'rgba(234, 57, 67, 0.05)' }}>
+                    <AlertTitle sx={{ fontWeight: 700 }}>การเชื่อมต่อล้มเหลว (Initialization Failed)</AlertTitle>
+                    {status.init_error || "เกิดข้อผิดพลาดในการโหลดค่าบัญชีเทรดของคุณ กรุณาตรวจสอบข้อมูลการเชื่อมต่อและกดบันทึกใหม่อีกครั้ง"}
+                  </Alert>
+                )}
+
                 {/* 1. Trade Mode */}
                 <FormControl fullWidth size="small">
                   <InputLabel>โหมดการเทรด (Trading Mode)</InputLabel>
@@ -455,415 +406,7 @@ export default function SettingsPage() {
                   </Box>
                 )}
 
-                {/* 3. Strategies (US and HK separated) */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
-                  <FormControl fullWidth size="small">
-                    <InputLabel>กลยุทธ์ส่งสัญญาณ สหรัฐฯ (US Strategy)</InputLabel>
-                    <Select
-                      value={formStrategyUs}
-                      label="กลยุทธ์ส่งสัญญาณ สหรัฐฯ (US Strategy)"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormStrategyUs(val);
-                        if (val === "volume_ema") {
-                          setFormPeriod("m15");
-                        } else if (val === "sma" || val === "hybrid") {
-                          setFormPeriod("d");
-                        }
-                      }}
-                      disabled={actionLoading}
-                      sx={{ borderRadius: '12px' }}
-                    >
-                      <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
-                      <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
-                      <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
-                      <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
-                    </Select>
-                  </FormControl>
 
-                  <FormControl fullWidth size="small">
-                    <InputLabel>กลยุทธ์ส่งสัญญาณ ฮ่องกง (HK Strategy)</InputLabel>
-                    <Select
-                      value={formStrategyHk}
-                      label="กลยุทธ์ส่งสัญญาณ ฮ่องกง (HK Strategy)"
-                      onChange={(e) => {
-                        const val = e.target.value;
-                        setFormStrategyHk(val);
-                        if (val === "volume_ema") {
-                          setFormPeriod("m15");
-                        } else if (val === "sma" || val === "hybrid") {
-                          setFormPeriod("d");
-                        }
-                      }}
-                      disabled={actionLoading}
-                      sx={{ borderRadius: '12px' }}
-                    >
-                      <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
-                      <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
-                      <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
-                      <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-
-                {/* 4. Watchlists US and HK */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                  <TextField 
-                    fullWidth
-                    size="small"
-                    label="รายชื่อหุ้นตลาดสหรัฐฯ US Tickers (คั่นด้วยเครื่องหมายจุลภาค ,)"
-                    placeholder="เช่น AAPL, TSLA, NVDA"
-                    value={formUsSymbols}
-                    onChange={(e) => setFormUsSymbols(e.target.value)}
-                    disabled={actionLoading}
-                  />
-
-                  <TextField 
-                    fullWidth
-                    size="small"
-                    label="รายชื่อหุ้นตลาดฮ่องกง HK Tickers (คั่นด้วยเครื่องหมายจุลภาค ,)"
-                    placeholder="เช่น 0700, 9988, 1810"
-                    value={formHkSymbols}
-                    onChange={(e) => setFormHkSymbols(e.target.value)}
-                    disabled={actionLoading}
-                    helperText="ป้อนเฉพาะเลขรหัสหุ้นฮ่องกงได้ บอทจะเติมนามสกุล .HK ให้โดยอัตโนมัติ"
-                  />
-
-                  {/* 4.5. HK Price Scanner Filter Settings */}
-                  <Box sx={{ p: 3, bgcolor: 'rgba(255, 255, 255, 0.02)', borderRadius: '16px', border: '1px solid rgba(148, 163, 184, 0.08)', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    <Typography variant="subtitle2" color="secondary.main" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      🇭🇰 ตั้งค่าการคัดกรองราคาสัญญาณหุ้นฮ่องกง (HK Price Scanner Filter)
-                    </Typography>
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2.5 }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>ตัวดำเนินการคัดกรองราคา (Price Operator)</InputLabel>
-                        <Select
-                          value={formHkFilterPriceOperator}
-                          label="ตัวดำเนินการคัดกรองราคา (Price Operator)"
-                          onChange={(e) => setFormHkFilterPriceOperator(e.target.value)}
-                          disabled={actionLoading}
-                          sx={{ borderRadius: '12px' }}
-                        >
-                          <MenuItem value="ge">มากกว่าหรือเท่ากับ (≥)</MenuItem>
-                          <MenuItem value="le">น้อยกว่าหรือเท่ากับ (≤)</MenuItem>
-                        </Select>
-                      </FormControl>
-                      <TextField 
-                        fullWidth
-                        size="small"
-                        label="ราคาเป้าหมายคัดกรองสัญญาณ (Filter Price Limit)"
-                        type="number"
-                        value={formHkFilterPriceLimit}
-                        onChange={(e) => setFormHkFilterPriceLimit(Math.max(0, parseFloat(e.target.value) || 0))}
-                        disabled={actionLoading}
-                        slotProps={{
-                          htmlInput: { min: 0, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkFilterPriceLimit(prev => Math.max(0, prev - 1))}
-                                  disabled={actionLoading || formHkFilterPriceLimit <= 0}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Minus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkFilterPriceLimit(prev => prev + 1)}
-                                  disabled={actionLoading}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Plus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            )
-                          }
-                        }}
-                        helperText="ค่าคัดกรองราคานี้จะใช้ในการแสดงผลหุ้นฮ่องกงบนแผงควบคุมหลักโดยเริ่มต้น"
-                      />
-                    </Box>
-                  </Box>
-
-                  {/* 4.75. HK Risk Management Settings */}
-                  <Box sx={{ p: 3, bgcolor: 'rgba(234, 57, 67, 0.02)', borderRadius: '16px', border: '1px dashed rgba(234, 57, 67, 0.15)', display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                    <Typography variant="subtitle2" color="error.main" sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                      🛑 ระบบควบคุมความเสี่ยง HK (HK Risk Management Controls)
-                    </Typography>
-                    
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr 1fr' }, gap: 2.5 }}>
-                      <TextField
-                        fullWidth size="small"
-                        label="Stop Loss (%)"
-                        type="number"
-                        value={formHkStopLossPct}
-                        onChange={(e) => setFormHkStopLossPct(Math.max(0, parseFloat(e.target.value) || 0))}
-                        disabled={actionLoading}
-                        helperText={formHkStopLossPct > 0 ? `ร่วง ${formHkStopLossPct}%` : "ปิด"}
-                        slotProps={{
-                          htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkStopLossPct(prev => Math.max(0, prev - 0.5))}
-                                  disabled={actionLoading || formHkStopLossPct <= 0}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Minus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkStopLossPct(prev => prev + 0.5)}
-                                  disabled={actionLoading}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Plus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            )
-                          }
-                        }}
-                      />
-                      <TextField
-                        fullWidth size="small"
-                        label="Take Profit (%)"
-                        type="number"
-                        value={formHkTakeProfitPct}
-                        onChange={(e) => setFormHkTakeProfitPct(Math.max(0, parseFloat(e.target.value) || 0))}
-                        disabled={actionLoading}
-                        helperText={formHkTakeProfitPct > 0 ? `ขึ้น ${formHkTakeProfitPct}%` : "ปิด"}
-                        slotProps={{
-                          htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkTakeProfitPct(prev => Math.max(0, prev - 0.5))}
-                                  disabled={actionLoading || formHkTakeProfitPct <= 0}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Minus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkTakeProfitPct(prev => prev + 0.5)}
-                                  disabled={actionLoading}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Plus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            )
-                          }
-                        }}
-                      />
-                      <TextField
-                        fullWidth size="small"
-                        label="Trailing Stop (%)"
-                        type="number"
-                        value={formHkTrailingStopPct}
-                        onChange={(e) => setFormHkTrailingStopPct(Math.max(0, parseFloat(e.target.value) || 0))}
-                        disabled={actionLoading}
-                        helperText={formHkTrailingStopPct > 0 ? `จาก peak ${formHkTrailingStopPct}%` : "ปิด"}
-                        slotProps={{
-                          htmlInput: { min: 0, step: 0.5, style: { textAlign: 'center', fontWeight: 700 } },
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkTrailingStopPct(prev => Math.max(0, prev - 0.5))}
-                                  disabled={actionLoading || formHkTrailingStopPct <= 0}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Minus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkTrailingStopPct(prev => prev + 0.5)}
-                                  disabled={actionLoading}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Plus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            )
-                          }
-                        }}
-                      />
-                      <TextField
-                        fullWidth size="small"
-                        label="Max Hold (วัน)"
-                        type="number"
-                        value={formHkMaxHoldDays}
-                        onChange={(e) => setFormHkMaxHoldDays(Math.max(0, parseInt(e.target.value) || 0))}
-                        disabled={actionLoading}
-                        helperText={formHkMaxHoldDays > 0 ? `สูงสุด ${formHkMaxHoldDays} วัน` : "ปิด"}
-                        slotProps={{
-                          htmlInput: { min: 0, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
-                          input: {
-                            startAdornment: (
-                              <InputAdornment position="start">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkMaxHoldDays(prev => Math.max(0, prev - 1))}
-                                  disabled={actionLoading || formHkMaxHoldDays <= 0}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Minus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton 
-                                  size="small" 
-                                  onClick={() => setFormHkMaxHoldDays(prev => prev + 1)}
-                                  disabled={actionLoading}
-                                  sx={{ color: 'text.secondary', p: 0.5 }}
-                                >
-                                  <Plus size={14} />
-                                </IconButton>
-                              </InputAdornment>
-                            )
-                          }
-                        }}
-                      />
-                    </Box>
-                    <TextField
-                      fullWidth size="small"
-                      label="Daily Loss Limit (HKD)"
-                      type="number"
-                      value={formHkDailyLossLimitHkd}
-                      onChange={(e) => setFormHkDailyLossLimitHkd(Math.max(0, parseFloat(e.target.value) || 0))}
-                      disabled={actionLoading}
-                      helperText={formHkDailyLossLimitHkd > 0 ? `หยุด bot ถ้าขาดทุน > ${formHkDailyLossLimitHkd.toLocaleString()} HKD/วัน` : "ปิด"}
-                      slotProps={{
-                        htmlInput: { min: 0, step: 100, style: { textAlign: 'center', fontWeight: 700 } },
-                        input: {
-                          startAdornment: (
-                            <InputAdornment position="start">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => setFormHkDailyLossLimitHkd(prev => Math.max(0, prev - 100))}
-                                disabled={actionLoading || formHkDailyLossLimitHkd <= 0}
-                                sx={{ color: 'text.secondary', p: 0.5 }}
-                              >
-                                <Minus size={14} />
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton 
-                                size="small" 
-                                onClick={() => setFormHkDailyLossLimitHkd(prev => prev + 100)}
-                                disabled={actionLoading}
-                                sx={{ color: 'text.secondary', p: 0.5 }}
-                              >
-                                <Plus size={14} />
-                              </IconButton>
-                            </InputAdornment>
-                          )
-                        }
-                      }}
-                    />
-                  </Box>
-                </Box>
-
-                {/* 5. Parameters grid */}
-                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr 1fr' }, gap: 2.5 }}>
-                  <TextField 
-                    fullWidth
-                    size="small"
-                    label="งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)"
-                    type="number"
-                    value={formQty}
-                    onChange={(e) => setFormQty(Math.max(1, parseInt(e.target.value) || 1))}
-                    slotProps={{ 
-                      htmlInput: { min: 1, style: { textAlign: 'center', fontWeight: 700 } },
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => setFormQty(prev => Math.max(1, prev - 1))}
-                              disabled={actionLoading || formQty <= 1}
-                              sx={{ color: 'text.secondary', p: 0.5 }}
-                            >
-                              <Minus size={14} />
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                        endAdornment: (
-                          <InputAdornment position="end">
-                            <IconButton 
-                              size="small" 
-                              onClick={() => setFormQty(prev => prev + 1)}
-                              disabled={actionLoading}
-                              sx={{ color: 'text.secondary', p: 0.5 }}
-                            >
-                              <Plus size={14} />
-                            </IconButton>
-                          </InputAdornment>
-                        )
-                      }
-                    }}
-                    required
-                    disabled={actionLoading}
-                  />
-
-                  <FormControl fullWidth size="small">
-                    <InputLabel>ช่วงเวลาแท่งเทียน (Candle Period)</InputLabel>
-                    <Select
-                      value={formPeriod}
-                      label="ช่วงเวลาแท่งเทียน (Candle Period)"
-                      onChange={(e) => setFormPeriod(e.target.value)}
-                      disabled={actionLoading}
-                      sx={{ borderRadius: '12px' }}
-                    >
-                      <MenuItem value="m1">1 นาที (1m)</MenuItem>
-                      <MenuItem value="m5">5 นาที (5m)</MenuItem>
-                      <MenuItem value="m15">15 นาที (15m)</MenuItem>
-                      <MenuItem value="m30">30 นาที (30m)</MenuItem>
-                      <MenuItem value="h1">1 ชั่วโมง (1h)</MenuItem>
-                      <MenuItem value="d">1 วัน (1d)</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Box>
-
-                {/* 6. Scan speed */}
-                <TextField 
-                  fullWidth
-                  size="small"
-                  label="ความถี่ในการอัปเดตสแกนของบอทหลังบ้าน (หน่วยวินาที)"
-                  type="number"
-                  value={formInterval}
-                  onChange={(e) => setFormInterval(parseInt(e.target.value) || 60)}
-                  slotProps={{ htmlInput: { min: 10 } }}
-                  required
-                  disabled={actionLoading}
-                />
 
                 <Button 
                   type="submit" 

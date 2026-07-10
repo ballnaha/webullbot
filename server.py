@@ -32,6 +32,8 @@ bot_state = {
     "client": None,
     "strategy_us": "sma",
     "strategy_hk": "sma",
+    "init_status": "idle",
+    "init_error": "",
     "latest_data": {
         "balance": {
             "cash": 0.0, "net_liquidation": 0.0, "unrealized_pnl": 0.0, "currency": "USD",
@@ -55,24 +57,28 @@ def add_system_log(message: str):
         bot_state["latest_data"]["logs"].pop(0)
     print(formatted_msg)
 
-def init_bot_components():
-    """
-    Initializes or re-initializes client and bot based on current Config settings.
-    """
-    # Validate config first
-    ok, msg = Config.validate()
-    if not ok:
-        add_system_log(f"Configuration validation failed: {msg}")
-        return False, msg
-
+def _bg_init_components():
+    bot_state["init_status"] = "initializing"
+    bot_state["init_error"] = ""
     try:
+        # Validate config first
+        ok, msg = Config.validate()
+        if not ok:
+            bot_state["init_status"] = "failed"
+            bot_state["init_error"] = msg
+            add_system_log(f"Configuration validation failed: {msg}")
+            return
+
         add_system_log(f"Initializing trading client for mode: {Config.TRADE_MODE}...")
         client = get_client()
         
         # Attempt login
         login_ok = client.login()
         if not login_ok:
-            return False, "Failed to login to Webull. Check credentials in settings."
+            bot_state["init_status"] = "failed"
+            bot_state["init_error"] = "Failed to login to Webull. Check credentials in settings."
+            add_system_log("Failed to login to Webull. Check credentials in settings.")
+            return
             
         bot_state["client"] = client
         
@@ -121,11 +127,22 @@ def init_bot_components():
         if hasattr(client, "portfolio") and "transactions" in client.portfolio:
             bot_state["latest_data"]["trades"] = client.portfolio["transactions"]
         
-        return True, "Success"
+        bot_state["init_status"] = "success"
+        bot_state["init_error"] = ""
     except Exception as e:
         error_msg = f"Initialization error: {e}"
         add_system_log(error_msg)
-        return False, error_msg
+        bot_state["init_status"] = "failed"
+        bot_state["init_error"] = error_msg
+
+def init_bot_components():
+    """
+    Initializes bot components asynchronously in a background thread.
+    """
+    t = threading.Thread(target=_bg_init_components, name="BotInitThread")
+    t.daemon = True
+    t.start()
+    return True, "Reinitialization started in the background"
 
 # Background task for bot trading execution
 async def trading_loop():
@@ -241,6 +258,14 @@ class ConfigModel(BaseModel):
     hk_etf_stop_loss_pct: Optional[float] = 5.0
     hk_etf_take_profit_pct: Optional[float] = 8.0
     hk_etf_strategy: Optional[str] = "all"
+    hk_auto_long: Optional[bool] = True
+    enable_inverse_etf_hedging: Optional[bool] = True
+    
+    # US ETF Settings
+    us_auto_long: Optional[bool] = True
+    us_enable_inverse_etf_hedging: Optional[bool] = True
+    us_etf_budget: Optional[float] = 300.0
+    us_etf_strategy: Optional[str] = "standard"
 
 class OrderModel(BaseModel):
     symbol: str
@@ -272,6 +297,8 @@ def get_status():
         "simulated_initial_cash": Config.SIMULATED_INITIAL_CASH,
         "simulated_initial_cash_hkd": Config.SIMULATED_INITIAL_CASH_HKD,
         "has_client": bot_state["client"] is not None,
+        "init_status": bot_state.get("init_status", "idle"),
+        "init_error": bot_state.get("init_error", ""),
         # HK Risk Management
         "hk_stop_loss_pct": Config.HK_STOP_LOSS_PCT,
         "hk_take_profit_pct": Config.HK_TAKE_PROFIT_PCT,
@@ -283,6 +310,12 @@ def get_status():
         "hk_etf_stop_loss_pct": Config.HK_ETF_STOP_LOSS_PCT,
         "hk_etf_take_profit_pct": Config.HK_ETF_TAKE_PROFIT_PCT,
         "hk_etf_strategy": Config.HK_ETF_STRATEGY,
+        "hk_auto_long": Config.HK_AUTO_LONG,
+        "enable_inverse_etf_hedging": Config.ENABLE_INVERSE_ETF_HEDGING,
+        "us_auto_long": Config.US_AUTO_LONG,
+        "us_enable_inverse_etf_hedging": Config.US_ENABLE_INVERSE_ETF_HEDGING,
+        "us_etf_budget": Config.US_ETF_BUDGET,
+        "us_etf_strategy": Config.US_ETF_STRATEGY,
     }
 
 @app.get("/api/portfolio")
@@ -534,10 +567,25 @@ def update_config(data: ConfigModel):
                 hk_etf_tp = data.hk_etf_take_profit_pct if data.hk_etf_take_profit_pct is not None else Config.HK_ETF_TAKE_PROFIT_PCT
                 hk_etf_strat = data.hk_etf_strategy if data.hk_etf_strategy is not None else Config.HK_ETF_STRATEGY
                 f.write(f"\n# HK ETF Settings\n")
+                auto_long = data.hk_auto_long if data.hk_auto_long is not None else Config.HK_AUTO_LONG
+                etf_hedging = data.enable_inverse_etf_hedging if data.enable_inverse_etf_hedging is not None else Config.ENABLE_INVERSE_ETF_HEDGING
                 f.write(f"HK_ETF_TRADE_QTY={hk_etf_qty}\n")
                 f.write(f"HK_ETF_STOP_LOSS_PCT={hk_etf_sl}\n")
                 f.write(f"HK_ETF_TAKE_PROFIT_PCT={hk_etf_tp}\n")
                 f.write(f"HK_ETF_STRATEGY={hk_etf_strat.lower()}\n")
+                f.write(f"HK_AUTO_LONG={str(auto_long).upper()}\n")
+                f.write(f"ENABLE_INVERSE_ETF_HEDGING={str(etf_hedging).upper()}\n")
+                
+                # US ETF Settings
+                us_auto_long = data.us_auto_long if data.us_auto_long is not None else Config.US_AUTO_LONG
+                us_etf_hedging = data.us_enable_inverse_etf_hedging if data.us_enable_inverse_etf_hedging is not None else Config.US_ENABLE_INVERSE_ETF_HEDGING
+                us_etf_budget = data.us_etf_budget if data.us_etf_budget is not None else Config.US_ETF_BUDGET
+                us_etf_strategy = data.us_etf_strategy if data.us_etf_strategy is not None else Config.US_ETF_STRATEGY
+                f.write(f"\n# US ETF Settings\n")
+                f.write(f"US_AUTO_LONG={str(us_auto_long).upper()}\n")
+                f.write(f"US_ENABLE_INVERSE_ETF_HEDGING={str(us_etf_hedging).upper()}\n")
+                f.write(f"US_ETF_BUDGET={us_etf_budget}\n")
+                f.write(f"US_ETF_STRATEGY={us_etf_strategy.lower()}\n")
             
             # Force reload Config in-place
             Config.reload_values()

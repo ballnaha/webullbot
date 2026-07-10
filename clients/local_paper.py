@@ -16,6 +16,8 @@ class LocalPaperTradingClient(BaseTradingClient):
         self.initial_cash = initial_cash
         from config import Config
         self.initial_cash_hkd = Config.SIMULATED_INITIAL_CASH_HKD
+        self.bars_cache = {}
+        self.price_cache = {}
         self._load_portfolio()
 
     def _load_portfolio(self):
@@ -23,6 +25,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             try:
                 with open(self.portfolio_file, 'r', encoding='utf-8') as f:
                     self.portfolio = json.load(f)
+                if "last_prices" not in self.portfolio:
+                    self.portfolio["last_prices"] = {}
             except Exception:
                 self._init_portfolio()
         else:
@@ -37,7 +41,8 @@ class LocalPaperTradingClient(BaseTradingClient):
                 "currency_hkd": "HKD"
             },
             "positions": {}, # Format: { "0700.HK": { "qty": 100, "avg_price": 350.0, "entry_time": "2026-07-10 09:00:00", "peak_price": 350.0 } }
-            "transactions": [] # List of transaction logs
+            "transactions": [], # List of transaction logs
+            "last_prices": {} # Cache of last known prices
         }
         self._save_portfolio()
 
@@ -81,6 +86,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             avg_price = pos["avg_price"]
             
             current_price = self._get_current_price(symbol)
+            if current_price <= 0:
+                current_price = avg_price
             market_value = qty * current_price
             cost = qty * avg_price
             
@@ -116,6 +123,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             qty = pos["qty"]
             avg_price = pos["avg_price"]
             current_price = self._get_current_price(symbol)
+            if current_price <= 0:
+                current_price = avg_price
             market_value = qty * current_price
             unrealized_pnl = market_value - (qty * avg_price)
             
@@ -144,9 +153,26 @@ class LocalPaperTradingClient(BaseTradingClient):
     def get_bars(self, symbol: str, interval: str, limit: int = 100) -> pd.DataFrame:
         yf_interval = self._map_interval(interval)
         
+        # Caching logic to prevent yfinance rate limits
+        import time
+        cache_key = (symbol, yf_interval)
+        # Lifetimes in seconds for interval types
+        lifetimes = {
+            "1m": 30,
+            "5m": 120,
+            "15m": 300,
+            "30m": 600,
+            "1h": 1200,
+            "1d": 14400
+        }
+        lifetime = lifetimes.get(yf_interval, 120)
+        
+        if cache_key in self.bars_cache:
+            cache_time, cached_df = self.bars_cache[cache_key]
+            if time.time() - cache_time < lifetime:
+                return cached_df
+        
         # Determine the period to request based on limit & interval
-        # If interval is m5 and limit is 100, we need 500 minutes (around 1-2 days)
-        # Safe period values: 1m -> 7d max, 5m -> 60d max
         if yf_interval in ["1m"]:
             period = "2d"
         elif yf_interval in ["5m", "15m", "30m"]:
@@ -161,6 +187,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             df = ticker.history(period=period, interval=yf_interval)
             
             if df.empty:
+                if cache_key in self.bars_cache:
+                    return self.bars_cache[cache_key][1]
                 return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
                 
             # Rename columns to standard lowercase representation
@@ -173,26 +201,73 @@ class LocalPaperTradingClient(BaseTradingClient):
             })
             # Keep only standard columns and take the last 'limit' items
             df = df[['open', 'high', 'low', 'close', 'volume']].tail(limit)
+            
+            # Save to cache
+            self.bars_cache[cache_key] = (time.time(), df)
             return df
         except Exception as e:
-            # Return empty dataframe in case of error
+            # Fallback to stale cached bars on error/rate limit
             print(f"Error fetching data from yfinance for {symbol}: {e}")
+            if cache_key in self.bars_cache:
+                print(f"Returning stale cached data for {symbol} due to rate limiting/error.")
+                return self.bars_cache[cache_key][1]
             return pd.DataFrame(columns=['open', 'high', 'low', 'close', 'volume'])
 
+    def _update_last_price(self, symbol: str, price: float):
+        if "last_prices" not in self.portfolio:
+            self.portfolio["last_prices"] = {}
+        if self.portfolio["last_prices"].get(symbol) != price:
+            self.portfolio["last_prices"][symbol] = price
+            self._save_portfolio()
+
     def _get_current_price(self, symbol: str) -> float:
+        import time
+        # Check local client price cache first (lifetime: 10 seconds)
+        if symbol in self.price_cache:
+            cache_time, price = self.price_cache[symbol]
+            if time.time() - cache_time < 10:
+                return price
+
         try:
             ticker = yf.Ticker(symbol)
-            # Use fast info or history to get last close
+            
+            # Try fast_info first (extremely fast and doesn't download historical tables)
+            try:
+                val = ticker.fast_info.get('last_price')
+                if val is not None and val > 0:
+                    price = float(val)
+                    self._update_last_price(symbol, price)
+                    self.price_cache[symbol] = (time.time(), price)
+                    return price
+            except Exception:
+                pass
+                
+            # Fallback to history to get last close
             df = ticker.history(period="1d", interval="1m")
             if not df.empty:
-                return float(df['Close'].iloc[-1])
+                price = float(df['Close'].iloc[-1])
+                self._update_last_price(symbol, price)
+                self.price_cache[symbol] = (time.time(), price)
+                return price
             
             # Fallback to daily
             df = ticker.history(period="5d", interval="1d")
             if not df.empty:
-                return float(df['Close'].iloc[-1])
+                price = float(df['Close'].iloc[-1])
+                self._update_last_price(symbol, price)
+                self.price_cache[symbol] = (time.time(), price)
+                return price
         except Exception:
             pass
+            
+        # Return last known price if yfinance fails
+        self._load_portfolio()
+        last_prices = self.portfolio.get("last_prices", {})
+        if symbol in last_prices and last_prices[symbol] > 0:
+            price = float(last_prices[symbol])
+            self.price_cache[symbol] = (time.time(), price)
+            return price
+            
         return 0.0
 
     def place_order(self, symbol: str, qty: int, action: str, order_type: str = "MKT", price: float = None) -> dict:

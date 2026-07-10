@@ -1,34 +1,34 @@
 "use client";
 
 import { useState, useEffect, useCallback, useMemo } from "react";
-import { 
-  ThemeProvider, 
-  createTheme, 
-  CssBaseline, 
-  Container, 
-  Card, 
-  CardContent, 
-  Typography, 
-  Button, 
-  Box, 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableContainer, 
-  TableHead, 
-  TableRow, 
-  Paper, 
-  TextField, 
-  Select, 
-  MenuItem, 
-  FormControl, 
-  InputLabel, 
-  Switch, 
+import {
+  ThemeProvider,
+  createTheme,
+  CssBaseline,
+  Container,
+  Card,
+  CardContent,
+  Typography,
+  Button,
+  Box,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  TextField,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Switch,
   FormControlLabel,
   InputAdornment,
-  Alert, 
-  AlertTitle, 
-  Divider, 
+  Alert,
+  AlertTitle,
+  Divider,
   Chip,
   Tabs,
   Tab,
@@ -48,19 +48,19 @@ import ConfirmDialog from 'frontend/components/ConfirmDialog';
 import TradeDialog from 'frontend/components/TradeDialog';
 import { useToast } from 'frontend/components/ToastProvider';
 
-import { 
-  Play, 
-  Square, 
-  Settings, 
-  Wallet, 
-  TrendingUp, 
-  TrendingDown, 
-  Activity, 
-  Terminal, 
-  History, 
-  ArrowUpRight, 
-  ArrowDownLeft, 
-  RefreshCw, 
+import {
+  Play,
+  Square,
+  Settings,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  Activity,
+  Terminal,
+  History,
+  ArrowUpRight,
+  ArrowDownLeft,
+  RefreshCw,
   AlertCircle,
   Database,
   Cpu,
@@ -117,6 +117,10 @@ interface BotStatus {
   interval: number;
   candle_period: string;
   has_client: boolean;
+  us_auto_long?: boolean;
+  us_enable_inverse_etf_hedging?: boolean;
+  us_etf_budget?: number;
+  us_etf_strategy?: string;
 }
 
 interface SignalData {
@@ -175,7 +179,7 @@ const STOCK_NAMES: Record<string, string> = {
   "CRM": "Salesforce, Inc.",
   "NKE": "Nike, Inc.",
   "DIS": "The Walt Disney Company",
-  
+
   // US Inverse ETFs
   "AAPD": "Direxion Daily AAPL Bear 1.5X Shares",
   "TSLQ": "Direxion Daily TSLA Bear 1X Shares",
@@ -196,7 +200,7 @@ const STOCK_NAMES: Record<string, string> = {
   "ERY": "Direxion Daily Energy Bear 2X Shares (2x Short XLE)",
   "DUST": "Direxion Daily Gold Miners Bear 2X Shares (2x Short GDX)",
   "SDOW": "ProShares UltraPro Short Dow30 (3x Short DIA)",
-  
+
   // HK Tickers (with and without leading zeros for robustness)
   "700.HK": "Tencent Holdings Ltd.",
   "0700.HK": "Tencent Holdings Ltd.",
@@ -207,41 +211,41 @@ const STOCK_NAMES: Record<string, string> = {
   "1810.HK": "Xiaomi Corporation",
   "9888.HK": "Baidu, Inc.",
   "2318.HK": "Ping An Insurance Group",
-  
+
   "3988.HK": "Bank of China Limited",
   "1398.HK": "Industrial and Commercial Bank of China",
-  
+
   "939.HK": "China Construction Bank",
   "0939.HK": "China Construction Bank",
-  
+
   "5.HK": "HSBC Holdings plc",
   "0005.HK": "HSBC Holdings plc",
-  
+
   "1299.HK": "AIA Group Limited",
-  
+
   "386.HK": "Sinopec Corp.",
   "0386.HK": "Sinopec Corp.",
-  
+
   "857.HK": "PetroChina Company Limited",
   "0857.HK": "PetroChina Company Limited",
-  
+
   "2628.HK": "China Life Insurance Company",
-  
+
   "941.HK": "China Mobile Limited",
   "0941.HK": "China Mobile Limited",
-  
+
   "2382.HK": "Sunny Optical Technology",
   "2015.HK": "Li Auto Inc.",
   "1211.HK": "BYD Company Limited",
-  
+
   "981.HK": "SMIC",
   "0981.HK": "Semiconductor Manufacturing International Corp",
-  
+
   "1024.HK": "Kuaishou Technology",
-  
+
   "388.HK": "HKEX",
   "0388.HK": "Hong Kong Exchanges and Clearing Limited",
-  
+
   "9868.HK": "XPeng Inc.",
   "2269.HK": "WuXi Biologics",
   "1818.HK": "Zhaojin Mining Industry Co., Ltd."
@@ -382,8 +386,8 @@ export default function StockUsHome() {
 
   // UI States
   const [actionLoading, setActionLoading] = useState(false);
-  const [maxPrice, setMaxPrice] = useState<string>(""); 
-  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("ge"); 
+  const [maxPrice, setMaxPrice] = useState<string>("");
+  const [priceOperator, setPriceOperator] = useState<"le" | "ge">("ge");
   const [searchQuery, setSearchQuery] = useState("");
   const [workspaceTab, setWorkspaceTab] = useState<number>(0);
   const [page, setPage] = useState(0);
@@ -393,7 +397,7 @@ export default function StockUsHome() {
   const [pagePos, setPagePos] = useState(0);
   const [rowsPerPagePos, setRowsPerPagePos] = useState(10);
 
-  
+
   // Watchlist Drawer States
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
@@ -402,19 +406,24 @@ export default function StockUsHome() {
   const [confirmClearOpen, setConfirmClearOpen] = useState(false);
   const [clearPending, setClearPending] = useState(false);
   const [isScanning, setIsScanning] = useState(false);
-  
+
   // Flag to lock config form resets during status updates
   const [isConfigInitialized, setIsConfigInitialized] = useState(false);
 
   // Config form state
   const [formMode, setFormMode] = useState("LOCAL_PAPER");
+  const [drawerSettingsTab, setDrawerSettingsTab] = useState<number>(0);
+  const [formUsAutoLong, setFormUsAutoLong] = useState<boolean>(true);
+  const [formUsAutoShort, setFormUsAutoShort] = useState<boolean>(true);
+  const [formUsEtfBudget, setFormUsEtfBudget] = useState<number>(300);
+  const [formUsEtfStrategy, setFormUsEtfStrategy] = useState<string>("standard");
   const [formUsSymbols, setFormUsSymbols] = useState("");
   const [formHkSymbols, setFormHkSymbols] = useState("");
   const [formQty, setFormQty] = useState(1);
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
   const [formStrategy, setFormStrategy] = useState("sma");
-  
+
   // Credentials config inputs
   const [formUsername, setFormUsername] = useState("");
   const [formPassword, setFormPassword] = useState("");
@@ -483,6 +492,10 @@ export default function StockUsHome() {
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
       setFormStrategy(status.strategy_us !== undefined ? status.strategy_us : status.strategy);
+      setFormUsAutoLong(status.us_auto_long !== undefined ? status.us_auto_long : true);
+      setFormUsAutoShort(status.us_enable_inverse_etf_hedging !== undefined ? status.us_enable_inverse_etf_hedging : true);
+      setFormUsEtfBudget(status.us_etf_budget !== undefined ? status.us_etf_budget : 300);
+      setFormUsEtfStrategy(status.us_etf_strategy !== undefined ? status.us_etf_strategy : "standard");
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -519,7 +532,7 @@ export default function StockUsHome() {
   const handleClearAllSymbols = async () => {
     setClearPending(true);
     const hkList = status.symbols.filter(s => s.endsWith('.HK'));
-    
+
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: "POST",
@@ -540,7 +553,7 @@ export default function StockUsHome() {
           app_secret: ""
         })
       });
-      
+
       const data = await res.json();
       if (!res.ok) {
         showToast(`ล้มเหลวในการล้างข้อมูล: ${data.detail || "ข้อผิดพลาดระบบหลังบ้าน"}`, "error");
@@ -562,7 +575,7 @@ export default function StockUsHome() {
     setActionLoading(true);
     const hkList = status.symbols.filter(s => s.endsWith('.HK'));
     const combinedSymbols = [...drawerUsSymbols, ...hkList];
-    
+
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: "POST",
@@ -583,7 +596,7 @@ export default function StockUsHome() {
           app_secret: ""
         })
       });
-      
+
       const data = await res.json();
       if (!res.ok) {
         showToast(`เกิดข้อผิดพลาด: ${data.detail || "ไม่สามารถอัปเดตข้อมูลได้"}`, "error");
@@ -621,6 +634,10 @@ export default function StockUsHome() {
           candle_period: formPeriod,
           strategy_us: formStrategy,
           strategy_hk: status.strategy_hk !== undefined ? status.strategy_hk : status.strategy,
+          us_auto_long: formUsAutoLong,
+          us_enable_inverse_etf_hedging: formUsAutoShort,
+          us_etf_budget: formUsEtfBudget,
+          us_etf_strategy: formUsEtfStrategy,
           username: "",
           password: "",
           trade_pin: "",
@@ -646,9 +663,15 @@ export default function StockUsHome() {
   };
 
   const handleLoadUsBudgetDefaults = () => {
-    setFormQty(300);
+    setFormQty(100);
     setFormInterval(60);
-    showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $300 เรียบร้อยแล้วครับ", "info");
+    setFormUsAutoLong(true);
+    setFormUsAutoShort(true);
+    setFormUsEtfBudget(100);
+    setFormUsEtfStrategy("all");
+    setFormStrategy("volume_ema");
+    setFormPeriod("m15");
+    showToast("กรอกค่าตั้งแนะนำสำหรับงบไม่เกิน $100 เรียบร้อยแล้วครับ", "info");
   };
 
   const handleManualScan = async () => {
@@ -714,7 +737,7 @@ export default function StockUsHome() {
       "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
       "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
     ];
-    
+
     const updatedSymbols = [...status.symbols];
     let addedCount = 0;
     for (const sym of recommendedList) {
@@ -723,13 +746,13 @@ export default function StockUsHome() {
         addedCount++;
       }
     }
-    
+
     if (addedCount === 0) {
       showToast("มีหุ้นแนะนำทั้งหมดอยู่ในระบบสแกนเนอร์บอทเรียบร้อยแล้วครับ!", "info");
       setActionLoading(false);
       return;
     }
-    
+
     try {
       const res = await fetch(`${API_BASE}/config`, {
         method: "POST",
@@ -815,7 +838,7 @@ export default function StockUsHome() {
           order_type: "MKT"
         })
       });
-      
+
       const data = await res.json();
       if (!res.ok) {
         showToast(`ส่งออเดอร์ล้มเหลว: ${data.detail || "กรุณาตรวจสอบระบบ"}`, "error");
@@ -834,12 +857,12 @@ export default function StockUsHome() {
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
     setActionLoading(true);
-    
+
     const usList = formUsSymbols
       .split(",")
       .map(s => s.trim().toUpperCase())
       .filter(s => s.length > 0);
-      
+
     const hkList = formHkSymbols
       .split(",")
       .map(s => {
@@ -850,7 +873,7 @@ export default function StockUsHome() {
         return sym;
       })
       .filter(s => s.length > 0);
-      
+
     const combinedSymbols = [...usList, ...hkList];
 
     try {
@@ -893,8 +916,8 @@ export default function StockUsHome() {
   };
 
   const isProfit = balance.unrealized_pnl >= 0;
-  const pnlPercent = balance.net_liquidation > 0 
-    ? (balance.unrealized_pnl / (balance.net_liquidation - balance.unrealized_pnl)) * 100 
+  const pnlPercent = balance.net_liquidation > 0
+    ? (balance.unrealized_pnl / (balance.net_liquidation - balance.unrealized_pnl)) * 100
     : 0;
 
   const filteredSignals = useMemo(() => {
@@ -919,600 +942,960 @@ export default function StockUsHome() {
   return (
     <>
 
-        {/* 2. Top Metric Cards Panel */}
-        <Box 
-          sx={{ 
-            display: 'grid', 
-            gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' }, 
-            gap: 3, 
-            mb: 4 
-          }}
-        >
-          {/* Card 1: Available Cash */}
-          <Card>
-            <CardContent sx={{ position: 'relative', overflow: 'hidden' }}>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  ยอดเงินสดคงเหลือ
-                </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
-                  <Wallet size={18} color="#3b82f6" />
-                </Box>
+      {/* 2. Top Metric Cards Panel */}
+      <Box
+        sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: '1fr 1fr 1fr 1fr' },
+          gap: 3,
+          mb: 4
+        }}
+      >
+        {/* Card 1: Available Cash */}
+        <Card>
+          <CardContent sx={{ position: 'relative', overflow: 'hidden' }}>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                ยอดเงินสดคงเหลือ
+              </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
+                <Wallet size={18} color="#3b82f6" />
               </Box>
-              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
-                ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Database size={10} /> สกุลเงิน: {balance.currency}
-              </Typography>
-            </CardContent>
-          </Card>
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
+              ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Database size={10} /> สกุลเงิน: {balance.currency}
+            </Typography>
+          </CardContent>
+        </Card>
 
-          {/* Card 2: Net Liquidation */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  มูลค่าพอร์ตรวม
-                </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
-                  <TrendingUp size={18} color="#3b82f6" />
-                </Box>
-              </Box>
-              <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
-                ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Card 2: Net Liquidation */}
+        <Card>
+          <CardContent>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                มูลค่าพอร์ตรวม
               </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: 'rgba(59, 130, 246, 0.08)', display: 'flex' }}>
+                <TrendingUp size={18} color="#3b82f6" />
+              </Box>
+            </Box>
+            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
+              ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              เงินสด + มูลค่าตลาดของหุ้นที่ถือครอง
+            </Typography>
+          </CardContent>
+        </Card>
+
+        {/* Card 3: Unrealized Profit & Loss */}
+        <Card>
+          <CardContent>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                กำไร/ขาดทุนสะสม
+              </Typography>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: isProfit ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)', display: 'flex' }}>
+                {isProfit ? <TrendingUp size={18} color="#10b981" /> : <TrendingDown size={18} color="#f43f5e" />}
+              </Box>
+            </Box>
+            <Typography
+              variant="h4"
+              color={isProfit ? "success.main" : "error.main"}
+              sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}
+            >
+              {isProfit ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </Typography>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
+              <Chip
+                label={`${isProfit ? "+" : ""}${pnlPercent.toFixed(2)}%`}
+                size="small"
+                color={isProfit ? "success" : "error"}
+                sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px' }}
+              />
               <Typography variant="caption" color="text.secondary">
-                เงินสด + มูลค่าตลาดของหุ้นที่ถือครอง
+                จากเงินลงทุนทั้งหมด
               </Typography>
-            </CardContent>
-          </Card>
+            </Box>
+          </CardContent>
+        </Card>
 
-          {/* Card 3: Unrealized Profit & Loss */}
-          <Card>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  กำไร/ขาดทุนสะสม
-                </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: isProfit ? 'rgba(16, 185, 129, 0.08)' : 'rgba(244, 63, 94, 0.08)', display: 'flex' }}>
-                  {isProfit ? <TrendingUp size={18} color="#10b981" /> : <TrendingDown size={18} color="#f43f5e" />}
-                </Box>
-              </Box>
-              <Typography 
-                variant="h4" 
-                color={isProfit ? "success.main" : "error.main"}
-                sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}
-              >
-                {isProfit ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+        {/* Card 4: Bot status toggle control */}
+        <Card sx={{ borderLeft: `2px solid ${(status.running_us !== undefined ? status.running_us : status.running) ? '#10b981' : '#64748b'}` }}>
+          <CardContent>
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
+                สถานะการทำงานบอท สหรัฐฯ
               </Typography>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 0.5 }}>
-                <Chip 
-                  label={`${isProfit ? "+" : ""}${pnlPercent.toFixed(2)}%`}
-                  size="small"
-                  color={isProfit ? "success" : "error"}
-                  sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px' }}
-                />
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: (status.running_us !== undefined ? status.running_us : status.running) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
+                <Activity size={18} color={(status.running_us !== undefined ? status.running_us : status.running) ? "#10b981" : "#64748b"} />
+              </Box>
+            </Box>
+            <Typography
+              variant="h4"
+              color={(status.running_us !== undefined ? status.running_us : status.running) ? "success.main" : "text.secondary"}
+              sx={{ fontWeight: 800, mb: 0.5 }}
+            >
+              {(status.running_us !== undefined ? status.running_us : status.running) ? "RUNNING" : "STANDBY"}
+            </Typography>
+
+            <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 0.2 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  📈 Long: {status.us_auto_long ? (status.strategy_us !== undefined ? status.strategy_us : status.strategy).toUpperCase() : "ปิด (OFF)"}
+                </Typography>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                  📉 Short: {status.us_enable_inverse_etf_hedging ? (status.us_etf_strategy !== undefined ? status.us_etf_strategy : "standard").toUpperCase() : "ปิด (OFF)"}
+                </Typography>
+              </Box>
+
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={status.running_us !== undefined ? status.running_us : status.running}
+                    onChange={handleToggleBot}
+                    color="success"
+                    disabled={actionLoading || !connected}
+                    size="small"
+                  />
+                }
+                label=""
+                sx={{ mr: 0 }}
+              />
+            </Box>
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* 3. Main Trading Workspace (Professional Tabbed Panel) */}
+      <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
+        <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', overflow: 'hidden' }}>
+          {/* Workspace Header */}
+          <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+            <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
+              <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : workspaceTab === 2 ? 'rgba(16, 185, 129, 0.06)' : 'rgba(99, 102, 241, 0.06)', display: 'flex' }}>
+                {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : workspaceTab === 2 ? <Activity size={20} color="#10b981" /> : <History size={20} color="#6366f1" />}
+              </Box>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
+                  {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : workspaceTab === 2 ? "พอร์ตโฟลิโอสินทรัพย์สหรัฐฯ (Positions)" : "ประวัติการเทรดสหรัฐฯ (US Trade History)"}
+                </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  จากเงินลงทุนทั้งหมด
+                  {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : workspaceTab === 2 ? "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้" : "ประวัติธุรกรรมซื้อขายหลักทรัพย์สหรัฐฯ ย้อนหลังทั้งหมด"}
                 </Typography>
               </Box>
-            </CardContent>
-          </Card>
+            </Box>
 
-          {/* Card 4: Bot status toggle control */}
-          <Card sx={{ borderLeft: `2px solid ${(status.running_us !== undefined ? status.running_us : status.running) ? '#10b981' : '#64748b'}` }}>
-            <CardContent>
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 1.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600, letterSpacing: '0.5px' }}>
-                  สถานะการทำงานบอท สหรัฐฯ
-                </Typography>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: (status.running_us !== undefined ? status.running_us : status.running) ? 'rgba(16, 185, 129, 0.08)' : 'rgba(100, 116, 139, 0.08)', display: 'flex' }}>
-                  <Activity size={18} color={(status.running_us !== undefined ? status.running_us : status.running) ? "#10b981" : "#64748b"} />
-                </Box>
-              </Box>
-              <Typography 
-                variant="h4" 
-                color={(status.running_us !== undefined ? status.running_us : status.running) ? "success.main" : "text.secondary"}
-                sx={{ fontWeight: 800, mb: 0.5 }}
-              >
-                {(status.running_us !== undefined ? status.running_us : status.running) ? "RUNNING" : "STANDBY"}
-              </Typography>
-              
-              <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500 }}>
-                  กลยุทธ์: {(status.strategy_us !== undefined ? status.strategy_us : status.strategy).toUpperCase()}
-                </Typography>
-                
-                <FormControlLabel
-                  control={
-                    <Switch 
-                      checked={status.running_us !== undefined ? status.running_us : status.running} 
-                      onChange={handleToggleBot}
-                      color="success"
-                      disabled={actionLoading || !connected}
-                      size="small"
-                    />
-                  }
-                  label=""
-                  sx={{ mr: 0 }}
-                />
-              </Box>
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* 3. Main Trading Workspace (Professional Tabbed Panel) */}
-        <Box sx={{ display: "flex", flexDirection: "column", gap: 3 }}>
-          <Card sx={{ background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.8) 0%, rgba(30, 41, 59, 0.8) 100%)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: '16px', overflow: 'hidden' }}>
-            {/* Workspace Header */}
-            <Box sx={{ p: 3, borderBottom: '1px solid rgba(255,255,255,0.08)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-              <Box sx={{ display: "flex", alignItems: "center", gap: 1.5 }}>
-                <Box sx={{ p: 1, borderRadius: '10px', bgcolor: workspaceTab === 0 ? 'rgba(59, 130, 246, 0.06)' : workspaceTab === 1 ? 'rgba(244, 63, 94, 0.06)' : workspaceTab === 2 ? 'rgba(16, 185, 129, 0.06)' : 'rgba(99, 102, 241, 0.06)', display: 'flex' }}>
-                  {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : workspaceTab === 2 ? <Activity size={20} color="#10b981" /> : <History size={20} color="#6366f1" />}
-                </Box>
-                <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
-                    {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : workspaceTab === 2 ? "พอร์ตโฟลิโอสินทรัพย์สหรัฐฯ (Positions)" : "ประวัติการเทรดสหรัฐฯ (US Trade History)"}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : workspaceTab === 2 ? "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้" : "ประวัติธุรกรรมซื้อขายหลักทรัพย์สหรัฐฯ ย้อนหลังทั้งหมด"}
-                  </Typography>
-                </Box>
-              </Box>
-              
-              {workspaceTab === 0 && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                  <FormControl size="small" sx={{ width: 65 }}>
-                    <Select
-                      value={priceOperator}
-                      disabled={actionLoading || !connected}
-                      onChange={(e) => {
-                        setPriceOperator(e.target.value as "le" | "ge");
-                        setPage(0);
-                      }}
-                      sx={{ 
-                        borderRadius: '8px 0 0 8px',
-                        bgcolor: 'rgba(255,255,255,0.02)',
-                        '& .MuiOutlinedInput-notchedOutline': {
-                          borderRight: 'none'
-                        }
-                      }}
-                    >
-                      <MenuItem value="ge">≥</MenuItem>
-                      <MenuItem value="le">≤</MenuItem>
-                    </Select>
-                  </FormControl>
-                  <TextField
-                    size="small"
-                    label="ราคา (Price)"
-                    type="number"
-                    disabled={actionLoading}
-                    value={maxPrice}
+            {workspaceTab === 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <FormControl size="small" sx={{ width: 65 }}>
+                  <Select
+                    value={priceOperator}
+                    disabled={actionLoading || !connected}
                     onChange={(e) => {
-                      setMaxPrice(e.target.value);
+                      setPriceOperator(e.target.value as "le" | "ge");
                       setPage(0);
                     }}
-                    placeholder="ทั้งหมด"
-                    slotProps={{
-                      htmlInput: { min: 0, step: 1 },
-                      inputLabel: { shrink: true }
-                    }}
-                    sx={{ 
-                      width: 110,
-                      mr: 1.5,
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '0 8px 8px 0',
-                        bgcolor: 'rgba(255,255,255,0.02)'
+                    sx={{
+                      borderRadius: '8px 0 0 8px',
+                      bgcolor: 'rgba(255,255,255,0.02)',
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        borderRight: 'none'
                       }
                     }}
-                  />
-                  
-                  {/* ช่องค้นหาหุ้น (Search Ticker) */}
-                  <TextField
-                    size="small"
-                    placeholder="ค้นหาหุ้น (เช่น AAPL)..."
-                    value={searchQuery}
-                    disabled={actionLoading}
-                    onChange={(e) => {
-                      setSearchQuery(e.target.value);
-                      setPage(0);
-                    }}
-                    slotProps={{
-                      input: {
-                        startAdornment: (
-                          <InputAdornment position="start">
-                            <Search size={16} color="#94a3b8" />
-                          </InputAdornment>
-                        )
-                      }
-                    }}
-                    sx={{ 
-                      width: 240,
-                      mr: 1.5,
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: '8px',
-                        bgcolor: 'rgba(255,255,255,0.02)'
-                      }
-                    }}
-                  />
-
-                  <Tooltip title="จัดการรายการหุ้น (Watchlist)" arrow>
-                    <span>
-                      <IconButton
-                        color="primary"
-                        size="small"
-                        disabled={actionLoading || !connected}
-                        onClick={handleOpenDrawer}
-                        sx={{ 
-                          height: 34, 
-                          width: 34,
-                          borderRadius: '8px', 
-                          mr: 1.5,
-                          border: '1px solid rgba(59, 130, 246, 0.4)',
-                          color: '#3b82f6',
-                          '&:hover': {
-                            borderColor: '#3b82f6',
-                            bgcolor: 'rgba(59, 130, 246, 0.05)'
-                          }
-                        }}
-                      >
-                        <ListPlus size={18} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-
-                  <Tooltip title="ตั้งค่าบอท (Settings)" arrow>
-                    <span>
-                      <IconButton
-                        color="secondary"
-                        size="small"
-                        disabled={actionLoading || !connected}
-                        onClick={() => setSettingsDrawerOpen(true)}
-                        sx={{ 
-                          height: 34, 
-                          width: 34,
-                          borderRadius: '8px', 
-                          mr: 1.5,
-                          border: '1px solid rgba(99, 102, 241, 0.4)',
-                          color: '#a5b4fc',
-                          '&:hover': {
-                            borderColor: '#6366f1',
-                            bgcolor: 'rgba(99, 102, 241, 0.05)'
-                          }
-                        }}
-                      >
-                        <Settings size={18} />
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-
-                  <Tooltip title="สแกนสดทันที (Scan Now)" arrow>
-                    <span>
-                      <IconButton
-                        color="secondary"
-                        size="small"
-                        disabled={isScanning || actionLoading || !connected}
-                        onClick={handleManualScan}
-                        sx={{ 
-                          height: 34, 
-                          width: 34,
-                          borderRadius: '8px',
-                          bgcolor: 'primary.main',
-                          color: 'white',
-                          '&:hover': {
-                            bgcolor: 'primary.dark'
-                          }
-                        }}
-                      >
-                        {isScanning ? (
-                          <RefreshCw size={18} className="spin" />
-                        ) : (
-                          <Play size={18} />
-                        )}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
-                </Box>
-              )}
-            </Box>
-
-            {/* Tab Swapper */}
-            <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', px: 3, bgcolor: 'rgba(255,255,255,0.01)' }}>
-              <Tabs 
-                value={workspaceTab} 
-                onChange={(e, newIdx) => setWorkspaceTab(newIdx)} 
-                textColor="primary" 
-                indicatorColor="primary"
-              >
-                <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-                <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-                <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-                <Tab label="📜 ประวัติการเทรด (Trade History)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-              </Tabs>
-            </Box>
-
-            <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
-              {workspaceTab === 0 && (
-                <LongScannerTab
-                  market="US"
-                  filteredSignals={filteredSignals}
-                  signals={signals}
-                  onQuickTrade={handleQuickTrade}
-                  actionLoading={actionLoading}
-                  connected={connected}
-                  isSignalsLoading={isSignalsLoading}
-                  hasClient={status.has_client}
-                  maxPrice={maxPrice}
-                  priceOperator={priceOperator}
-                  stockNames={STOCK_NAMES}
-                />
-              )}
-
-              {workspaceTab === 1 && (
-                <InverseEtfsTab
-                  market="US"
-                  etfData={etfData}
-                  signals={signals}
-                  onQuickTrade={handleQuickTrade}
-                  actionLoading={actionLoading}
-                  connected={connected}
-                  isSignalsLoading={isSignalsLoading}
-                  hasClient={status.has_client}
-                  stockNames={STOCK_NAMES}
-                />
-              )}
-
-              {workspaceTab === 2 && (
-                <ActivePositionsTab
-                  market="US"
-                  positions={positions}
-                  onQuickTrade={handleQuickTrade}
-                  actionLoading={actionLoading}
-                  connected={connected}
-                  hasClient={status.has_client}
-                  stockNames={STOCK_NAMES}
-                />
-              )}
-
-              {workspaceTab === 3 && (
-                <TradeHistoryTab
-                  market="US"
-                  trades={trades}
-                  stockNames={STOCK_NAMES}
-                />
-              )}
-            </CardContent>
-          </Card>
-        </Box>
-
-        {/* Quick Trade Dialog */}
-        <TradeDialog
-          open={tradeDialogOpen}
-          symbol={tradeDialogSymbol}
-          action={tradeDialogAction}
-          defaultQty={tradeDialogDefaultQty}
-          loading={tradeDialogPending}
-          onConfirm={handleExecuteQuickTrade}
-          onCancel={() => setTradeDialogOpen(false)}
-          mode="cash"
-        />
-
-        {/* Watchlist Drawer */}
-        <Drawer
-          anchor="right"
-          open={drawerOpen}
-          onClose={() => setDrawerOpen(false)}
-        >
-          <Box
-            sx={{
-              width: { xs: '100vw', sm: 500 },
-              height: '100%',
-              bgcolor: '#0f141c',
-              borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-              p: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              boxSizing: 'border-box'
-            }}
-          >
-            {/* Drawer Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <ListPlus size={20} color="#3b82f6" />
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  จัดการรายการหุ้นสหรัฐฯ
-                </Typography>
-              </Box>
-              <IconButton onClick={() => setDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
-                <X size={18} />
-              </IconButton>
-            </Box>
-
-            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
-
-            {/* Section 1: Add New Ticker */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                ➕ เพิ่มหุ้นตัวใหม่ (Add Ticker)
-              </Typography>
-              <Box 
-                component="form" 
-                onSubmit={(e) => {
-                  e.preventDefault();
-                  handleAddSymbol(newSymbolInput);
-                }}
-                sx={{ display: 'flex', gap: 1 }}
-              >
+                  >
+                    <MenuItem value="ge">≥</MenuItem>
+                    <MenuItem value="le">≤</MenuItem>
+                  </Select>
+                </FormControl>
                 <TextField
                   size="small"
-                  fullWidth
-                  placeholder="เช่น AAPL หรือ TSLA"
-                  value={newSymbolInput}
-                  onChange={(e) => setNewSymbolInput(e.target.value)}
+                  label="ราคา (Price)"
+                  type="number"
+                  disabled={actionLoading}
+                  value={maxPrice}
+                  onChange={(e) => {
+                    setMaxPrice(e.target.value);
+                    setPage(0);
+                  }}
+                  placeholder="ทั้งหมด"
+                  slotProps={{
+                    htmlInput: { min: 0, step: 1 },
+                    inputLabel: { shrink: true }
+                  }}
                   sx={{
+                    width: 110,
+                    mr: 1.5,
+                    '& .MuiOutlinedInput-root': {
+                      borderRadius: '0 8px 8px 0',
+                      bgcolor: 'rgba(255,255,255,0.02)'
+                    }
+                  }}
+                />
+
+                {/* ช่องค้นหาหุ้น (Search Ticker) */}
+                <TextField
+                  size="small"
+                  placeholder="ค้นหาหุ้น (เช่น AAPL)..."
+                  value={searchQuery}
+                  disabled={actionLoading}
+                  onChange={(e) => {
+                    setSearchQuery(e.target.value);
+                    setPage(0);
+                  }}
+                  slotProps={{
+                    input: {
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Search size={16} color="#94a3b8" />
+                        </InputAdornment>
+                      )
+                    }
+                  }}
+                  sx={{
+                    width: 240,
+                    mr: 1.5,
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '8px',
                       bgcolor: 'rgba(255,255,255,0.02)'
                     }
                   }}
                 />
-                <Button
-                  variant="contained"
-                  color="primary"
-                  type="submit"
-                  sx={{ borderRadius: '8px', minWidth: 60 }}
-                >
-                  เพิ่ม
-                </Button>
-              </Box>
-            </Box>
 
-            {/* Section 2: Recommended Stocks */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
-                  ⭐ หุ้นสหรัฐฯ แนะนำ (Recommended)
-                </Typography>
-                <Button
-                  size="small"
-                  variant="text"
-                  color="primary"
-                  onClick={handleMonitorAllRecommended}
-                  disabled={actionLoading}
-                  sx={{ 
-                    fontSize: '0.72rem', 
-                    py: 0, 
-                    fontWeight: 700,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5
-                  }}
-                >
-                  {actionLoading ? (
-                    <>
-                      <CircularProgress size={12} sx={{ color: 'primary.main' }} />
-                      กำลังดำเนินการ...
-                    </>
-                  ) : (
-                    "เพิ่มทั้งหมด 20 ตัว"
-                  )}
-                </Button>
-              </Box>
-              <Typography variant="caption" color="text.secondary">คลิกเลือกทีละตัวด้านล่าง หรือกด "เพิ่มทั้งหมด 20 ตัว" เพื่อเพิ่มหุ้นยอดนิยมในพอร์ตบอท</Typography>
-              <Box sx={{ 
-                maxHeight: 120, 
-                overflowY: 'auto', 
-                display: 'flex', 
-                gap: 0.8, 
-                flexWrap: 'wrap', 
-                p: 1, 
-                bgcolor: 'rgba(255,255,255,0.01)', 
-                borderRadius: '8px',
-                border: '1px solid rgba(255,255,255,0.04)'
-              }}>
-                {[
-                  "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
-                  "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
-                ]
-                  .filter(sym => !drawerUsSymbols.includes(sym))
-                  .map((sym) => (
-                    <Chip
-                      key={sym}
-                      label={`${sym} (${STOCK_NAMES[sym]?.split(' ')[0] || ''})`}
+                <Tooltip title="จัดการรายการหุ้น (Watchlist)" arrow>
+                  <span>
+                    <IconButton
+                      color="primary"
                       size="small"
-                      onClick={() => handleAddSymbol(sym)}
-                      icon={<Plus size={12} />}
-                      clickable
-                      sx={{ 
-                        bgcolor: 'rgba(59, 130, 246, 0.08)',
+                      disabled={actionLoading || !connected}
+                      onClick={handleOpenDrawer}
+                      sx={{
+                        height: 34,
+                        width: 34,
+                        borderRadius: '8px',
+                        mr: 1.5,
+                        border: '1px solid rgba(59, 130, 246, 0.4)',
                         color: '#3b82f6',
-                        border: '1px solid rgba(59, 130, 246, 0.15)',
-                        fontSize: '0.7rem',
                         '&:hover': {
-                          bgcolor: 'rgba(59, 130, 246, 0.15)',
+                          borderColor: '#3b82f6',
+                          bgcolor: 'rgba(59, 130, 246, 0.05)'
                         }
                       }}
-                    />
-                  ))}
-                {[
-                  "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
-                  "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
-                ].filter(sym => !drawerUsSymbols.includes(sym)).length === 0 && (
+                    >
+                      <ListPlus size={18} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="ตั้งค่าบอท (Settings)" arrow>
+                  <span>
+                    <IconButton
+                      color="secondary"
+                      size="small"
+                      disabled={actionLoading || !connected}
+                      onClick={() => setSettingsDrawerOpen(true)}
+                      sx={{
+                        height: 34,
+                        width: 34,
+                        borderRadius: '8px',
+                        mr: 1.5,
+                        border: '1px solid rgba(99, 102, 241, 0.4)',
+                        color: '#a5b4fc',
+                        '&:hover': {
+                          borderColor: '#6366f1',
+                          bgcolor: 'rgba(99, 102, 241, 0.05)'
+                        }
+                      }}
+                    >
+                      <Settings size={18} />
+                    </IconButton>
+                  </span>
+                </Tooltip>
+
+                <Tooltip title="สแกนสดทันที (Scan Now)" arrow>
+                  <span>
+                    <IconButton
+                      color="secondary"
+                      size="small"
+                      disabled={isScanning || actionLoading || !connected}
+                      onClick={handleManualScan}
+                      sx={{
+                        height: 34,
+                        width: 34,
+                        borderRadius: '8px',
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        '&:hover': {
+                          bgcolor: 'primary.dark'
+                        }
+                      }}
+                    >
+                      {isScanning ? (
+                        <RefreshCw size={18} className="spin" />
+                      ) : (
+                        <Play size={18} />
+                      )}
+                    </IconButton>
+                  </span>
+                </Tooltip>
+              </Box>
+            )}
+          </Box>
+
+          {/* Tab Swapper */}
+          <Box sx={{ borderBottom: '1px solid rgba(255,255,255,0.08)', px: 3, bgcolor: 'rgba(255,255,255,0.01)' }}>
+            <Tabs
+              value={workspaceTab}
+              onChange={(e, newIdx) => setWorkspaceTab(newIdx)}
+              textColor="primary"
+              indicatorColor="primary"
+            >
+              <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              <Tab label="📜 ประวัติการเทรด (Trade History)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+            </Tabs>
+          </Box>
+
+          <CardContent sx={{ p: 0, '&:last-child': { pb: 0 } }}>
+            {workspaceTab === 0 && (
+              <LongScannerTab
+                market="US"
+                filteredSignals={filteredSignals}
+                signals={signals}
+                onQuickTrade={handleQuickTrade}
+                actionLoading={actionLoading}
+                connected={connected}
+                isSignalsLoading={isSignalsLoading}
+                hasClient={status.has_client}
+                maxPrice={maxPrice}
+                priceOperator={priceOperator}
+                stockNames={STOCK_NAMES}
+              />
+            )}
+
+            {workspaceTab === 1 && (
+              <InverseEtfsTab
+                market="US"
+                etfData={etfData}
+                signals={signals}
+                onQuickTrade={handleQuickTrade}
+                actionLoading={actionLoading}
+                connected={connected}
+                isSignalsLoading={isSignalsLoading}
+                hasClient={status.has_client}
+                stockNames={STOCK_NAMES}
+              />
+            )}
+
+            {workspaceTab === 2 && (
+              <ActivePositionsTab
+                market="US"
+                positions={positions}
+                onQuickTrade={handleQuickTrade}
+                actionLoading={actionLoading}
+                connected={connected}
+                hasClient={status.has_client}
+                stockNames={STOCK_NAMES}
+              />
+            )}
+
+            {workspaceTab === 3 && (
+              <TradeHistoryTab
+                market="US"
+                trades={trades}
+                stockNames={STOCK_NAMES}
+              />
+            )}
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* Quick Trade Dialog */}
+      <TradeDialog
+        open={tradeDialogOpen}
+        symbol={tradeDialogSymbol}
+        action={tradeDialogAction}
+        defaultQty={tradeDialogDefaultQty}
+        loading={tradeDialogPending}
+        onConfirm={handleExecuteQuickTrade}
+        onCancel={() => setTradeDialogOpen(false)}
+        mode="cash"
+      />
+
+      {/* Watchlist Drawer */}
+      <Drawer
+        anchor="right"
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+      >
+        <Box
+          sx={{
+            width: { xs: '100vw', sm: 500 },
+            height: '100%',
+            bgcolor: '#0f141c',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Drawer Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ListPlus size={20} color="#3b82f6" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                จัดการรายการหุ้นสหรัฐฯ
+              </Typography>
+            </Box>
+            <IconButton onClick={() => setDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
+              <X size={18} />
+            </IconButton>
+          </Box>
+
+          <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
+
+          {/* Section 1: Add New Ticker */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+              ➕ เพิ่มหุ้นตัวใหม่ (Add Ticker)
+            </Typography>
+            <Box
+              component="form"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleAddSymbol(newSymbolInput);
+              }}
+              sx={{ display: 'flex', gap: 1 }}
+            >
+              <TextField
+                size="small"
+                fullWidth
+                placeholder="เช่น AAPL หรือ TSLA"
+                value={newSymbolInput}
+                onChange={(e) => setNewSymbolInput(e.target.value)}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: '8px',
+                    bgcolor: 'rgba(255,255,255,0.02)'
+                  }
+                }}
+              />
+              <Button
+                variant="contained"
+                color="primary"
+                type="submit"
+                sx={{ borderRadius: '8px', minWidth: 60 }}
+              >
+                เพิ่ม
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Section 2: Recommended Stocks */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary' }}>
+                ⭐ หุ้นสหรัฐฯ แนะนำ (Recommended)
+              </Typography>
+              <Button
+                size="small"
+                variant="text"
+                color="primary"
+                onClick={handleMonitorAllRecommended}
+                disabled={actionLoading}
+                sx={{
+                  fontSize: '0.72rem',
+                  py: 0,
+                  fontWeight: 700,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5
+                }}
+              >
+                {actionLoading ? (
+                  <>
+                    <CircularProgress size={12} sx={{ color: 'primary.main' }} />
+                    กำลังดำเนินการ...
+                  </>
+                ) : (
+                  "เพิ่มทั้งหมด 20 ตัว"
+                )}
+              </Button>
+            </Box>
+            <Typography variant="caption" color="text.secondary">คลิกเลือกทีละตัวด้านล่าง หรือกด "เพิ่มทั้งหมด 20 ตัว" เพื่อเพิ่มหุ้นยอดนิยมในพอร์ตบอท</Typography>
+            <Box sx={{
+              maxHeight: 120,
+              overflowY: 'auto',
+              display: 'flex',
+              gap: 0.8,
+              flexWrap: 'wrap',
+              p: 1,
+              bgcolor: 'rgba(255,255,255,0.01)',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.04)'
+            }}>
+              {[
+                "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
+                "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
+              ]
+                .filter(sym => !drawerUsSymbols.includes(sym))
+                .map((sym) => (
+                  <Chip
+                    key={sym}
+                    label={`${sym} (${STOCK_NAMES[sym]?.split(' ')[0] || ''})`}
+                    size="small"
+                    onClick={() => handleAddSymbol(sym)}
+                    icon={<Plus size={12} />}
+                    clickable
+                    sx={{
+                      bgcolor: 'rgba(59, 130, 246, 0.08)',
+                      color: '#3b82f6',
+                      border: '1px solid rgba(59, 130, 246, 0.15)',
+                      fontSize: '0.7rem',
+                      '&:hover': {
+                        bgcolor: 'rgba(59, 130, 246, 0.15)',
+                      }
+                    }}
+                  />
+                ))}
+              {[
+                "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "NFLX", "AMD", "INTC",
+                "PLTR", "AVGO", "QQQ", "SPY", "PYPL", "BABA", "ADBE", "CRM", "NKE", "DIS"
+              ].filter(sym => !drawerUsSymbols.includes(sym)).length === 0 && (
                   <Typography variant="caption" color="text.secondary">เพิ่มหุ้นแนะนำครบทั้งหมดแล้ว</Typography>
                 )}
-              </Box>
             </Box>
+          </Box>
 
-            {/* Section 3: Current Watchlist List */}
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, overflow: 'hidden' }}>
-              <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <span>📋 รายการหุ้นสแกนปัจจุบัน ({drawerUsSymbols.length} ตัว)</span>
-                {drawerUsSymbols.length > 0 && (
-                  <Button 
-                    size="small" 
-                    color="error" 
-                    variant="text" 
-                    onClick={() => setConfirmClearOpen(true)}
-                    sx={{ fontSize: '0.68rem', py: 0 }}
-                  >
-                    ล้างทั้งหมด
-                  </Button>
-                )}
+          {/* Section 3: Current Watchlist List */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, flex: 1, overflow: 'hidden' }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'text.primary', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <span>📋 รายการหุ้นสแกนปัจจุบัน ({drawerUsSymbols.length} ตัว)</span>
+              {drawerUsSymbols.length > 0 && (
+                <Button
+                  size="small"
+                  color="error"
+                  variant="text"
+                  onClick={() => setConfirmClearOpen(true)}
+                  sx={{ fontSize: '0.68rem', py: 0 }}
+                >
+                  ล้างทั้งหมด
+                </Button>
+              )}
+            </Typography>
+            <Box sx={{
+              flex: 1,
+              overflowY: 'auto',
+              border: '1px solid rgba(255,255,255,0.05)',
+              borderRadius: '8px',
+              bgcolor: 'rgba(255,255,255,0.01)'
+            }}>
+              {drawerUsSymbols.length === 0 ? (
+                <Box sx={{ p: 3, textAlign: 'center' }}>
+                  <Typography variant="caption" color="text.secondary">ไม่มีรายการหุ้นในรายการสแกนขณะนี้</Typography>
+                </Box>
+              ) : (
+                <List dense disablePadding>
+                  {drawerUsSymbols.map((sym) => (
+                    <ListItem
+                      key={sym}
+                      divider
+                      sx={{
+                        py: 1,
+                        px: 2,
+                        borderColor: 'rgba(255, 255, 255, 0.04)',
+                        '&:last-child': { borderBottom: 'none' }
+                      }}
+                    >
+                      <ListItemText
+                        primary={
+                          <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'primary.main' }}>
+                            {sym}
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', display: 'block', mt: 0.2 }}>
+                            {STOCK_NAMES[sym] || "US Listed Company"}
+                          </Typography>
+                        }
+                      />
+                      <ListItemSecondaryAction>
+                        <IconButton
+                          edge="end"
+                          size="small"
+                          color="error"
+                          onClick={() => handleRemoveSymbol(sym)}
+                          sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
+                        >
+                          <Trash2 size={16} />
+                        </IconButton>
+                      </ListItemSecondaryAction>
+                    </ListItem>
+                  ))}
+                </List>
+              )}
+            </Box>
+          </Box>
+
+          {/* Drawer Bottom Actions */}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
+            <Button
+              variant="contained"
+              color="primary"
+              fullWidth
+              onClick={handleSaveDrawerConfig}
+              disabled={actionLoading}
+              sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
+            >
+              {actionLoading ? <RefreshCw className="spin" size={18} /> : "บันทึก & รีโหลดบอท (Save & Hot-Reload)"}
+            </Button>
+            <Typography variant="caption" color="text.secondary" align="center">
+              * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
+            </Typography>
+          </Box>
+        </Box>
+      </Drawer>
+
+      {/* US Settings Drawer */}
+      <Drawer
+        anchor="right"
+        open={settingsDrawerOpen}
+        onClose={() => setSettingsDrawerOpen(false)}
+      >
+        <Box
+          sx={{
+            width: { xs: '100vw', sm: 500 },
+            height: '100%',
+            bgcolor: '#0f141c',
+            borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
+            p: 3,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: 3,
+            boxSizing: 'border-box'
+          }}
+        >
+          {/* Drawer Header */}
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Settings size={20} color="#6366f1" />
+              <Typography variant="h6" sx={{ fontWeight: 800 }}>
+                ตั้งค่าบอทเทรดสหรัฐฯ (US Settings)
               </Typography>
-              <Box sx={{ 
-                flex: 1, 
-                overflowY: 'auto', 
-                border: '1px solid rgba(255,255,255,0.05)', 
-                borderRadius: '8px',
-                bgcolor: 'rgba(255,255,255,0.01)'
-              }}>
-                {drawerUsSymbols.length === 0 ? (
-                  <Box sx={{ p: 3, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">ไม่มีรายการหุ้นในรายการสแกนขณะนี้</Typography>
+            </Box>
+            <IconButton onClick={() => setSettingsDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
+              <X size={18} />
+            </IconButton>
+          </Box>
+
+          <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
+
+          {/* Settings Form */}
+          <form onSubmit={handleSaveUsSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1, overflow: 'hidden' }}>
+            <Tabs
+              value={drawerSettingsTab}
+              onChange={(e, val) => setDrawerSettingsTab(val)}
+              variant="fullWidth"
+              sx={{
+                borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
+                mb: -1,
+                '& .MuiTab-root': {
+                  fontWeight: 750,
+                  fontSize: '0.8rem',
+                  color: 'text.secondary',
+                  textTransform: 'none',
+                  py: 1.5,
+                },
+                '& .Mui-selected': {
+                  color: 'primary.main',
+                }
+              }}
+            >
+              <Tab label="📈 Long (ซื้อ)" />
+              <Tab label="📉 Short (ETF)" />
+              <Tab label="⚙️ General (ทั่วไป)" />
+            </Tabs>
+
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1, pr: 1 }}>
+              {drawerSettingsTab === 0 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box sx={{ p: 2.5, bgcolor: 'rgba(99, 102, 241, 0.02)', borderRadius: '12px', border: '1px solid rgba(99, 102, 241, 0.12)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                        บอทสแกนซื้อปกติ (Auto Long)
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formUsAutoLong}
+                            onChange={(e) => setFormUsAutoLong(e.target.checked)}
+                            color="primary"
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: formUsAutoLong ? 'primary.light' : 'text.secondary' }}>
+                            {formUsAutoLong ? "เปิดเทรดออโต้ (ON)" : "ปิดการเทรดออโต้"}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
+                    </Box>
                   </Box>
-                ) : (
-                  <List dense disablePadding>
-                    {drawerUsSymbols.map((sym) => (
-                      <ListItem 
-                        key={sym} 
-                        divider 
-                        sx={{ 
-                          py: 1,
-                          px: 2,
-                          borderColor: 'rgba(255, 255, 255, 0.04)',
-                          '&:last-child': { borderBottom: 'none' }
-                        }}
-                      >
-                        <ListItemText
-                          primary={
-                            <Typography sx={{ fontWeight: 700, fontSize: '0.85rem', color: 'primary.main' }}>
-                              {sym}
-                            </Typography>
-                          }
-                          secondary={
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', display: 'block', mt: 0.2 }}>
-                              {STOCK_NAMES[sym] || "US Listed Company"}
-                            </Typography>
-                          }
-                        />
-                        <ListItemSecondaryAction>
-                          <IconButton 
-                            edge="end" 
-                            size="small" 
-                            color="error" 
-                            onClick={() => handleRemoveSymbol(sym)}
-                            sx={{ opacity: 0.6, '&:hover': { opacity: 1 } }}
-                          >
-                            <Trash2 size={16} />
-                          </IconButton>
-                        </ListItemSecondaryAction>
-                      </ListItem>
-                    ))}
-                  </List>
-                )}
-              </Box>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>กลยุทธ์ส่งสัญญาณ Long (Strategy)</InputLabel>
+                    <Select
+                      value={formStrategy}
+                      label="กลยุทธ์ส่งสัญญาณ Long (Strategy)"
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        setFormStrategy(val);
+                        if (val === "volume_ema") {
+                          setFormPeriod("m15");
+                        } else if (val === "sma" || val === "hybrid") {
+                          setFormPeriod("d");
+                        }
+                      }}
+                      disabled={actionLoading}
+                      sx={{ borderRadius: '8px' }}
+                    >
+                      <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
+                      <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
+                      <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
+                      <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -1.5 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
+                      ⚙️ งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)
+                    </Typography>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      color="secondary"
+                      onClick={handleLoadUsBudgetDefaults}
+                      sx={{
+                        fontSize: '0.72rem',
+                        py: 0.2,
+                        px: 1.2,
+                        borderRadius: '6px',
+                        borderColor: 'rgba(99, 102, 241, 0.4)',
+                        color: '#a5b4fc',
+                        '&:hover': {
+                          borderColor: '#6366f1',
+                          bgcolor: 'rgba(99, 102, 241, 0.05)'
+                        }
+                      }}
+                    >
+                      แนะนำสำหรับงบ $100
+                    </Button>
+                  </Box>
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)"
+                    type="number"
+                    value={formQty}
+                    onChange={(e) => setFormQty(Math.max(1, parseInt(e.target.value) || 1))}
+                    slotProps={{
+                      htmlInput: { min: 1, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormQty(prev => Math.max(1, prev - 1))}
+                              disabled={actionLoading || formQty <= 1}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Minus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormQty(prev => prev + 1)}
+                              disabled={actionLoading}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Plus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                    required
+                    disabled={actionLoading}
+                  />
+                </Box>
+              )}
+
+              {drawerSettingsTab === 1 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Box sx={{ p: 2.5, bgcolor: 'rgba(244, 63, 94, 0.02)', borderRadius: '12px', border: '1px solid rgba(244, 63, 94, 0.12)', display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'error.main' }}>
+                        บอทสแกนป้องกันความเสี่ยง (ETF Hedging)
+                      </Typography>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={formUsAutoShort}
+                            onChange={(e) => setFormUsAutoShort(e.target.checked)}
+                            color="error"
+                            size="small"
+                          />
+                        }
+                        label={
+                          <Typography variant="caption" sx={{ fontWeight: 700, color: formUsAutoShort ? 'error.light' : 'text.secondary' }}>
+                            {formUsAutoShort ? "เปิดเทรดออโต้ (ON)" : "ปิดการเทรดออโต้"}
+                          </Typography>
+                        }
+                        sx={{ m: 0 }}
+                      />
+                    </Box>
+                  </Box>
+
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'error.main', mb: -1.5 }}>
+                    ⚙️ งบซื้อกองทุน ETF ป้องกันความเสี่ยง (USD ETF Budget)
+                  </Typography>
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="งบซื้อ ETF ป้องกันความเสี่ยง (USD ETF Budget)"
+                    type="number"
+                    value={formUsEtfBudget}
+                    onChange={(e) => setFormUsEtfBudget(Math.max(1, parseInt(e.target.value) || 1))}
+                    slotProps={{
+                      htmlInput: { min: 1, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormUsEtfBudget(prev => Math.max(1, prev - 10))}
+                              disabled={actionLoading || formUsEtfBudget <= 1}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Minus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormUsEtfBudget(prev => prev + 10)}
+                              disabled={actionLoading}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Plus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                    required
+                    disabled={actionLoading}
+                  />
+
+                  <FormControl fullWidth size="small" sx={{ mt: 1 }}>
+                    <InputLabel>กลยุทธ์อ้างอิงสำหรับ ETF (ETF Strategy)</InputLabel>
+                    <Select
+                      value={formUsEtfStrategy}
+                      label="กลยุทธ์อ้างอิงสำหรับ ETF (ETF Strategy)"
+                      onChange={(e) => setFormUsEtfStrategy(e.target.value)}
+                      disabled={actionLoading}
+                      sx={{ borderRadius: '8px' }}
+                    >
+                      <MenuItem value="standard">ใช้กลยุทธ์ตามหุ้นแม่ (ตามตลาดสหรัฐฯ)</MenuItem>
+                      <MenuItem value="all">Composite Score (รวมทุกอินดิเคเตอร์)</MenuItem>
+                      <MenuItem value="volume_ema">Volume Spike + EMA Breakout</MenuItem>
+                      <MenuItem value="sma">SMA Crossover</MenuItem>
+                      <MenuItem value="rsi">RSI Reversal</MenuItem>
+                      <MenuItem value="hybrid">SMA+RSI Hybrid</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Box>
+              )}
+
+              {drawerSettingsTab === 2 && (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
+                    📊 ตั้งค่าแท่งเทียนและช่วงเวลา (Timeframe & Interval)
+                  </Typography>
+
+                  <FormControl fullWidth size="small">
+                    <InputLabel>ช่วงเวลาแท่งเทียน (Candle Period)</InputLabel>
+                    <Select
+                      value={formPeriod}
+                      label="ช่วงเวลาแท่งเทียน (Candle Period)"
+                      onChange={(e) => setFormPeriod(e.target.value)}
+                      disabled={actionLoading}
+                      sx={{ borderRadius: '8px' }}
+                    >
+                      <MenuItem value="m1">1 นาที (1m)</MenuItem>
+                      <MenuItem value="m5">5 นาที (5m)</MenuItem>
+                      <MenuItem value="m15">15 นาที (15m)</MenuItem>
+                      <MenuItem value="m30">30 นาที (30m)</MenuItem>
+                      <MenuItem value="h1">1 ชั่วโมง (1h)</MenuItem>
+                      <MenuItem value="d">1 วัน (1d)</MenuItem>
+                    </Select>
+                  </FormControl>
+
+                  <TextField
+                    fullWidth
+                    size="small"
+                    label="ความถี่ในการอัปเดตสแกนของบอท (หน่วยวินาที)"
+                    type="number"
+                    value={formInterval}
+                    onChange={(e) => setFormInterval(Math.max(10, parseInt(e.target.value) || 60))}
+                    slotProps={{
+                      htmlInput: { min: 10, step: 5, style: { textAlign: 'center', fontWeight: 700 } },
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormInterval(prev => Math.max(10, prev - 5))}
+                              disabled={actionLoading || formInterval <= 10}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Minus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              size="small"
+                              onClick={() => setFormInterval(prev => prev + 5)}
+                              disabled={actionLoading}
+                              sx={{ color: 'text.secondary', p: 0.5 }}
+                            >
+                              <Plus size={14} />
+                            </IconButton>
+                          </InputAdornment>
+                        )
+                      }
+                    }}
+                    required
+                    disabled={actionLoading}
+                  />
+                </Box>
+              )}
             </Box>
 
             {/* Drawer Bottom Actions */}
@@ -1520,8 +1903,8 @@ export default function StockUsHome() {
               <Button
                 variant="contained"
                 color="primary"
+                type="submit"
                 fullWidth
-                onClick={handleSaveDrawerConfig}
                 disabled={actionLoading}
                 sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
               >
@@ -1531,234 +1914,22 @@ export default function StockUsHome() {
                 * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
               </Typography>
             </Box>
-          </Box>
-        </Drawer>
+          </form>
+        </Box>
+      </Drawer>
 
-        {/* US Settings Drawer */}
-        <Drawer
-          anchor="right"
-          open={settingsDrawerOpen}
-          onClose={() => setSettingsDrawerOpen(false)}
-        >
-          <Box
-            sx={{
-              width: { xs: '100vw', sm: 500 },
-              height: '100%',
-              bgcolor: '#0f141c',
-              borderLeft: '1px solid rgba(255, 255, 255, 0.08)',
-              p: 3,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 3,
-              boxSizing: 'border-box'
-            }}
-          >
-            {/* Drawer Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Settings size={20} color="#6366f1" />
-                <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                  ตั้งค่าบอทเทรดสหรัฐฯ (US Settings)
-                </Typography>
-              </Box>
-              <IconButton onClick={() => setSettingsDrawerOpen(false)} size="small" sx={{ color: 'text.secondary' }}>
-                <X size={18} />
-              </IconButton>
-            </Box>
-
-            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.06)' }} />
-
-            {/* Settings Form */}
-            <form onSubmit={handleSaveUsSettings} style={{ display: 'flex', flexDirection: 'column', gap: '20px', flex: 1 }}>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, overflowY: 'auto', flex: 1, pr: 1 }}>
-                
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: -1.5 }}>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main' }}>
-                    ⚙️ การตั้งค่าการจำกัดความเสี่ยง (USD Budget)
-                  </Typography>
-                  <Button
-                    size="small"
-                    variant="outlined"
-                    color="secondary"
-                    onClick={handleLoadUsBudgetDefaults}
-                    sx={{ 
-                      fontSize: '0.72rem', 
-                      py: 0.2, 
-                      px: 1.2, 
-                      borderRadius: '6px',
-                      borderColor: 'rgba(99, 102, 241, 0.4)',
-                      color: '#a5b4fc',
-                      '&:hover': {
-                        borderColor: '#6366f1',
-                        bgcolor: 'rgba(99, 102, 241, 0.05)'
-                      }
-                    }}
-                  >
-                    แนะนำสำหรับงบ $300
-                  </Button>
-                </Box>
-
-                <TextField 
-                  fullWidth
-                  size="small"
-                  label="งบเงินซื้อเริ่มต้น สหรัฐฯ (USD Budget)"
-                  type="number"
-                  value={formQty}
-                  onChange={(e) => setFormQty(Math.max(1, parseInt(e.target.value) || 1))}
-                  slotProps={{ 
-                    htmlInput: { min: 1, step: 1, style: { textAlign: 'center', fontWeight: 700 } },
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setFormQty(prev => Math.max(1, prev - 1))}
-                            disabled={actionLoading || formQty <= 1}
-                            sx={{ color: 'text.secondary', p: 0.5 }}
-                          >
-                            <Minus size={14} />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setFormQty(prev => prev + 1)}
-                            disabled={actionLoading}
-                            sx={{ color: 'text.secondary', p: 0.5 }}
-                          >
-                            <Plus size={14} />
-                          </IconButton>
-                        </InputAdornment>
-                      )
-                    }
-                  }}
-                  required
-                  disabled={actionLoading}
-                />
-
-                <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.04)', my: 1 }} />
-
-                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: 'primary.main', mb: -1 }}>
-                  📊 ตั้งค่าแท่งเทียนและกลยุทธ์ (Strategy & Timeframe)
-                </Typography>
-
-                <FormControl fullWidth size="small">
-                  <InputLabel>กลยุทธ์ส่งสัญญาณ (Strategy)</InputLabel>
-                  <Select
-                    value={formStrategy}
-                    label="กลยุทธ์ส่งสัญญาณ (Strategy)"
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setFormStrategy(val);
-                      if (val === "volume_ema") {
-                        setFormPeriod("m15");
-                      } else if (val === "sma" || val === "hybrid") {
-                        setFormPeriod("d");
-                      }
-                    }}
-                    disabled={actionLoading}
-                    sx={{ borderRadius: '8px' }}
-                  >
-                    <MenuItem value="sma">SMA Crossover (ตัดกันระยะสั้น/ยาว)</MenuItem>
-                    <MenuItem value="rsi">RSI Reversal (สัญญาณกลับตัว RSI)</MenuItem>
-                    <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์ผสมสแกนแม่นยำ)</MenuItem>
-                    <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <FormControl fullWidth size="small">
-                  <InputLabel>ช่วงเวลาแท่งเทียน (Candle Period)</InputLabel>
-                  <Select
-                    value={formPeriod}
-                    label="ช่วงเวลาแท่งเทียน (Candle Period)"
-                    onChange={(e) => setFormPeriod(e.target.value)}
-                    disabled={actionLoading}
-                    sx={{ borderRadius: '8px' }}
-                  >
-                    <MenuItem value="m1">1 นาที (1m)</MenuItem>
-                    <MenuItem value="m5">5 นาที (5m)</MenuItem>
-                    <MenuItem value="m15">15 นาที (15m)</MenuItem>
-                    <MenuItem value="m30">30 นาที (30m)</MenuItem>
-                    <MenuItem value="h1">1 ชั่วโมง (1h)</MenuItem>
-                    <MenuItem value="d">1 วัน (1d)</MenuItem>
-                  </Select>
-                </FormControl>
-
-                <TextField 
-                  fullWidth
-                  size="small"
-                  label="ความถี่ในการอัปเดตสแกนของบอท (หน่วยวินาที)"
-                  type="number"
-                  value={formInterval}
-                  onChange={(e) => setFormInterval(Math.max(10, parseInt(e.target.value) || 60))}
-                  slotProps={{ 
-                    htmlInput: { min: 10, step: 5, style: { textAlign: 'center', fontWeight: 700 } },
-                    input: {
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setFormInterval(prev => Math.max(10, prev - 5))}
-                            disabled={actionLoading || formInterval <= 10}
-                            sx={{ color: 'text.secondary', p: 0.5 }}
-                          >
-                            <Minus size={14} />
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton 
-                            size="small" 
-                            onClick={() => setFormInterval(prev => prev + 5)}
-                            disabled={actionLoading}
-                            sx={{ color: 'text.secondary', p: 0.5 }}
-                          >
-                            <Plus size={14} />
-                          </IconButton>
-                        </InputAdornment>
-                      )
-                    }
-                  }}
-                  required
-                  disabled={actionLoading}
-                />
-              </Box>
-
-              {/* Drawer Bottom Actions */}
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, mt: 'auto', pt: 2, borderTop: '1px solid rgba(255, 255, 255, 0.06)' }}>
-                <Button
-                  variant="contained"
-                  color="primary"
-                  type="submit"
-                  fullWidth
-                  disabled={actionLoading}
-                  sx={{ py: 1.2, fontWeight: 700, borderRadius: '8px' }}
-                >
-                  {actionLoading ? <RefreshCw className="spin" size={18} /> : "บันทึก & รีโหลดบอท (Save & Hot-Reload)"}
-                </Button>
-                <Typography variant="caption" color="text.secondary" align="center">
-                  * การกดบันทึกจะเขียนทับการตั้งค่าบอทและรีสตาร์ทบอทเพื่อรับค่าใหม่ทันที
-                </Typography>
-              </Box>
-            </form>
-          </Box>
-        </Drawer>
-
-        {/* Confirm Clear Watchlist Dialog */}
-        <ConfirmDialog
-          open={confirmClearOpen}
-          title="ยืนยันการล้างรายการสแกน?"
-          message="คุณต้องการลบรายชื่อหุ้นทั้งหมดในรายการสแกนนี้ใช่หรือไม่?"
-          confirmText="ใช่, ล้างทั้งหมด"
-          cancelText="ยกเลิก"
-          severity="warning"
-          loading={clearPending}
-          onConfirm={handleClearAllSymbols}
-          onCancel={() => setConfirmClearOpen(false)}
-        />
+      {/* Confirm Clear Watchlist Dialog */}
+      <ConfirmDialog
+        open={confirmClearOpen}
+        title="ยืนยันการล้างรายการสแกน?"
+        message="คุณต้องการลบรายชื่อหุ้นทั้งหมดในรายการสแกนนี้ใช่หรือไม่?"
+        confirmText="ใช่, ล้างทั้งหมด"
+        cancelText="ยกเลิก"
+        severity="warning"
+        loading={clearPending}
+        onConfirm={handleClearAllSymbols}
+        onCancel={() => setConfirmClearOpen(false)}
+      />
     </>
   );
 }
