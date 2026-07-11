@@ -1,0 +1,15 @@
+"""Print final config summary."""
+from config import Config
+Config.reload_values()
+print("=== Complete HK Config for 1000 HKD ===")
+print(f"Stock Strategy: {Config.STRATEGY_HK} {Config.HK_SMA_FAST_PERIOD}/{Config.HK_SMA_SLOW_PERIOD}")
+print(f"Stock SL/TP: {Config.HK_STOP_LOSS_PCT}%/{Config.HK_TAKE_PROFIT_PCT}%")
+print(f"Stock Budget: {Config.HK_TRADE_BUDGET_HKD} HKD, Slots: {Config.HK_MAX_SLOTS}")
+print(f"Stock Price Limit: <= {Config.HK_FILTER_PRICE_LIMIT} HKD")
+print(f"ETF Budget: {Config.HK_ETF_BUDGET_HKD} HKD")
+print(f"ETF SL/TP: {Config.HK_ETF_STOP_LOSS_PCT}%/{Config.HK_ETF_TAKE_PROFIT_PCT}%")
+print(f"ETF Qty: {Config.HK_ETF_TRADE_QTY}")
+print(f"ETF Strategy: {Config.HK_ETF_STRATEGY}")
+print(f"Hedging: {Config.ENABLE_INVERSE_ETF_HEDGING}")
+print(f"7330.HK in board lots: {'7330.HK' in Config.HK_BOARD_LOTS}")
+print(f"Board lots count: {len(Config.HK_BOARD_LOTS)}")

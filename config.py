@@ -19,24 +19,65 @@ class Config:
     # US order budget in USD (legacy name retained for UI/API compatibility).
     TRADE_QUANTITY = 100.0
     TRADE_QUANTITY_HK = 100
+    HK_TRADE_BUDGET_HKD = 2000.0
+    HK_ETF_BUDGET_HKD = 1000.0
+    HK_DEFAULT_BOARD_LOT = 100
+    HK_BOARD_LOTS = {
+        # Verified examples from Webull's official Stock Trading API docs.
+        "0700.HK": 100,
+        "0005.HK": 400,
+        "1299.HK": 200,
+        "1810.HK": 200,
+        "3690.HK": 100,
+        "9618.HK": 50,
+        "1211.HK": 500,
+        "7500.HK": 100,
+        "7552.HK": 100,
+        "7300.HK": 100,
+        "3033.HK": 200,
+        "3067.HK": 100,
+        # Low-priced board lots verified for 1000 HKD strategy.
+        "0001.HK": 100, "0002.HK": 500, "0003.HK": 500, "0006.HK": 500,
+        "0011.HK": 100, "0012.HK": 100, "0016.HK": 100, "0027.HK": 1000,
+        "0066.HK": 100, "0101.HK": 500, "0175.HK": 1000, "0241.HK": 500,
+        "0267.HK": 500, "0291.HK": 1000, "0322.HK": 1000, "0386.HK": 1000,
+        "0388.HK": 100, "0669.HK": 500, "0688.HK": 1000, "0728.HK": 500,
+        "0762.HK": 500, "0763.HK": 1000, "0823.HK": 500, "0857.HK": 1000,
+        "0867.HK": 500, "0939.HK": 500, "0941.HK": 500, "0960.HK": 500,
+        "0966.HK": 500, "0968.HK": 1000, "0981.HK": 500, "0992.HK": 1000,
+        "1024.HK": 100, "1038.HK": 1000, "1044.HK": 1000, "1088.HK": 500,
+        "1093.HK": 200, "1109.HK": 500, "1113.HK": 500, "1177.HK": 200,
+        "1199.HK": 100, "1347.HK": 500, "1378.HK": 2000, "1398.HK": 1000,
+        "1772.HK": 1000, "1818.HK": 500, "1876.HK": 100, "1898.HK": 1000,
+        "1918.HK": 2000, "1928.HK": 1000, "2007.HK": 2000, "2015.HK": 100,
+        "2020.HK": 500, "2269.HK": 500, "2318.HK": 500, "2319.HK": 1000,
+        "2331.HK": 500, "2333.HK": 500, "2359.HK": 500, "2382.HK": 500,
+        "2628.HK": 500, "2899.HK": 500, "3988.HK": 1000, "6618.HK": 100,
+        "6862.HK": 100, "9626.HK": 100, "9696.HK": 100, "9866.HK": 100,
+        "9868.HK": 100, "9888.HK": 100, "9988.HK": 100, "9999.HK": 100,
+        "0883.HK": 1000,
+    }
     HK_MAX_SLOTS = 1
-    HK_MAX_PRICE_PER_SLOT = 999999.0
+    HK_MAX_PRICE_PER_SLOT = 8.0
     HK_MAX_QTY_PER_SLOT = 100
-    HK_FILTER_PRICE_LIMIT = 20.0
+    HK_FILTER_PRICE_LIMIT = 8.0
     HK_FILTER_PRICE_OPERATOR = "le"
     INTERVAL = 60
-    CANDLE_PERIOD = "m5"
+    CANDLE_PERIOD = "d"
     STRATEGY_US = "sma"
-    STRATEGY_HK = "sma"
+    STRATEGY_HK = "rsi"
+    HK_SMA_FAST_PERIOD = 20
+    HK_SMA_SLOW_PERIOD = 50
     SIMULATED_INITIAL_CASH = 10000.0
     SIMULATED_INITIAL_CASH_HKD = 78000.0
+    USD_HKD_RATE = 7.8
     PORTFOLIO_FILE = "local_portfolio.json"
 
     # ── HK Risk Management ──────────────────────────────────────────────────────
     # Stop Loss: ตัดขาดทุนเมื่อราคาร่วงเกิน % จากต้นทุน (0 = ปิดใช้งาน)
-    HK_STOP_LOSS_PCT = 5.0
+    HK_STOP_LOSS_PCT = 3.0
     # Take Profit: ทำกำไรเมื่อราคาขึ้นเกิน % จากต้นทุน (0 = ปิดใช้งาน)
-    HK_TAKE_PROFIT_PCT = 8.0
+    HK_TAKE_PROFIT_PCT = 6.0
     # Trailing Stop: SL แบบลอยตาม peak ราคา (0 = ปิดใช้งาน)
     HK_TRAILING_STOP_PCT = 0.0
     # Max Hold Days: บังคับขายถ้าถือเกิน N วัน (0 = ปิดใช้งาน)
@@ -61,18 +102,35 @@ class Config:
     US_ETF_TAKE_PROFIT_PCT = 10.0
     US_ETF_TRAILING_STOP_PCT = 0.0
     REGULAR_HOURS_ONLY = True
-    US_MIN_ORDER_VALUE = 5.0
+    US_MIN_ORDER_VALUE = 1.0
     PAPER_SLIPPAGE_BPS = 5.0
     PAPER_FEE_USD = 0.0
+    PAPER_FEE_HK_RATE = 0.0012
+    PAPER_STRICT_MARKET_RULES = True
+    PAPER_US_FRACTIONAL_SYMBOLS = {
+        "AAPL", "MSFT", "TSLA", "NVDA", "AMZN", "META", "GOOGL", "GOOG",
+        "NFLX", "AMD", "INTC", "PLTR", "AVGO", "QQQ", "SPY", "PYPL",
+        "BABA", "ADBE", "CRM", "NKE", "DIS", "SMH", "SOXX", "ARKK",
+        "IWM", "XLF", "XLE", "GDX", "DIA", "SQQQ", "SPXS", "SOXS",
+    }
     
     # HK ETF Settings
     HK_ETF_TRADE_QTY = 100
-    HK_ETF_STOP_LOSS_PCT = 5.0
-    HK_ETF_TAKE_PROFIT_PCT = 8.0
-    HK_ETF_STRATEGY = "all"
+    HK_ETF_STOP_LOSS_PCT = 8.0
+    HK_ETF_TAKE_PROFIT_PCT = 15.0
+    HK_ETF_STRATEGY = "trend_cash_3067"
+    HK_LONG_ETF_SYMBOL = "3067.HK"
+    HK_ETF_TREND_FAST = 20
+    HK_ETF_TREND_SLOW = 50
+    HK_ETF_MOMENTUM_PERIOD = 20
+    HK_ETF_REBALANCE_BARS = 5
+    HK_SHORT_BEARISH_THRESHOLD = 0.60
+    HK_SHORT_EXIT_THRESHOLD = 0.30
+    HK_ALLOW_NAKED_INVERSE = False
+    HK_HEDGE_RATIO = 0.50
     
     # Inverse ETF hedging configurations
-    ENABLE_INVERSE_ETF_HEDGING = True
+    ENABLE_INVERSE_ETF_HEDGING = False
     INVERSE_ETF_MAP = {
         "AAPL": "AAPD",        # 1x Short Apple
         "TSLA": "TSLQ",        # 2x Short Tesla
@@ -137,21 +195,35 @@ class Config:
         ]
         cls.TRADE_QUANTITY = float(os.getenv("TRADE_QUANTITY", "100.0"))
         cls.TRADE_QUANTITY_HK = int(os.getenv("TRADE_QUANTITY_HK", "100"))
+        cls.HK_TRADE_BUDGET_HKD = float(os.getenv("HK_TRADE_BUDGET_HKD", "2000.0"))
+        cls.HK_ETF_BUDGET_HKD = float(os.getenv("HK_ETF_BUDGET_HKD", "1000.0"))
+        cls.HK_DEFAULT_BOARD_LOT = int(os.getenv("HK_DEFAULT_BOARD_LOT", "100"))
         cls.HK_MAX_SLOTS = int(os.getenv("HK_MAX_SLOTS", "1"))
         cls.HK_MAX_PRICE_PER_SLOT = float(os.getenv("HK_MAX_PRICE_PER_SLOT", "999999.0"))
         cls.HK_MAX_QTY_PER_SLOT = int(os.getenv("HK_MAX_QTY_PER_SLOT", "100"))
         cls.HK_FILTER_PRICE_LIMIT = float(os.getenv("HK_FILTER_PRICE_LIMIT", "20.0"))
         cls.HK_FILTER_PRICE_OPERATOR = os.getenv("HK_FILTER_PRICE_OPERATOR", "le").lower()
         cls.INTERVAL = int(os.getenv("INTERVAL", "60"))
-        cls.CANDLE_PERIOD = os.getenv("CANDLE_PERIOD", "m5").lower()
+        cls.CANDLE_PERIOD = os.getenv("CANDLE_PERIOD", "d").lower()
         cls.STRATEGY_US = os.getenv("STRATEGY_US", "sma").lower()
         cls.STRATEGY_HK = os.getenv("STRATEGY_HK", "sma").lower()
-        cls.SIMULATED_INITIAL_CASH = float(os.getenv("SIMULATED_INITIAL_CASH", "10000.0"))
-        cls.SIMULATED_INITIAL_CASH_HKD = float(os.getenv("SIMULATED_INITIAL_CASH_HKD", str(cls.SIMULATED_INITIAL_CASH * 7.8)))
-        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
+        cls.HK_SMA_FAST_PERIOD = int(os.getenv("HK_SMA_FAST_PERIOD", "20"))
+        cls.HK_SMA_SLOW_PERIOD = int(os.getenv("HK_SMA_SLOW_PERIOD", "50"))
+        cls.USD_HKD_RATE = float(os.getenv("USD_HKD_RATE", "7.8"))
+        hkd_raw = os.getenv("SIMULATED_INITIAL_CASH_HKD", "").strip()
+        usd_raw = os.getenv("SIMULATED_INITIAL_CASH", "").strip()
+        if hkd_raw:
+            cls.SIMULATED_INITIAL_CASH_HKD = float(hkd_raw)
+        elif usd_raw:
+            cls.SIMULATED_INITIAL_CASH_HKD = float(usd_raw) * cls.USD_HKD_RATE
+        else:
+            cls.SIMULATED_INITIAL_CASH_HKD = 78000.0
+        # One shared cash pool: HKD is canonical and USD is always its conversion.
+        cls.SIMULATED_INITIAL_CASH = cls.SIMULATED_INITIAL_CASH_HKD / cls.USD_HKD_RATE
+        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "FALSE").upper() == "TRUE"
         # HK Risk Management
-        cls.HK_STOP_LOSS_PCT = float(os.getenv("HK_STOP_LOSS_PCT", "5.0"))
-        cls.HK_TAKE_PROFIT_PCT = float(os.getenv("HK_TAKE_PROFIT_PCT", "8.0"))
+        cls.HK_STOP_LOSS_PCT = float(os.getenv("HK_STOP_LOSS_PCT", "6.0"))
+        cls.HK_TAKE_PROFIT_PCT = float(os.getenv("HK_TAKE_PROFIT_PCT", "12.0"))
         cls.HK_TRAILING_STOP_PCT = float(os.getenv("HK_TRAILING_STOP_PCT", "0.0"))
         cls.HK_MAX_HOLD_DAYS = int(os.getenv("HK_MAX_HOLD_DAYS", "0"))
         cls.HK_DAILY_LOSS_LIMIT_HKD = float(os.getenv("HK_DAILY_LOSS_LIMIT_HKD", "0.0"))
@@ -171,15 +243,26 @@ class Config:
         cls.US_ETF_TAKE_PROFIT_PCT = float(os.getenv("US_ETF_TAKE_PROFIT_PCT", "10.0"))
         cls.US_ETF_TRAILING_STOP_PCT = float(os.getenv("US_ETF_TRAILING_STOP_PCT", "0.0"))
         cls.REGULAR_HOURS_ONLY = os.getenv("REGULAR_HOURS_ONLY", "TRUE").upper() == "TRUE"
-        cls.US_MIN_ORDER_VALUE = float(os.getenv("US_MIN_ORDER_VALUE", "5.0"))
+        cls.US_MIN_ORDER_VALUE = float(os.getenv("US_MIN_ORDER_VALUE", "1.0"))
         cls.PAPER_SLIPPAGE_BPS = float(os.getenv("PAPER_SLIPPAGE_BPS", "5.0"))
         cls.PAPER_FEE_USD = float(os.getenv("PAPER_FEE_USD", "0.0"))
-        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "TRUE").upper() == "TRUE"
+        cls.PAPER_FEE_HK_RATE = float(os.getenv("PAPER_FEE_HK_RATE", "0.0012"))
+        cls.PAPER_STRICT_MARKET_RULES = os.getenv("PAPER_STRICT_MARKET_RULES", "TRUE").upper() == "TRUE"
+        cls.ENABLE_INVERSE_ETF_HEDGING = os.getenv("ENABLE_INVERSE_ETF_HEDGING", "FALSE").upper() == "TRUE"
         # HK ETF Settings
         cls.HK_ETF_TRADE_QTY = int(os.getenv("HK_ETF_TRADE_QTY", "100"))
-        cls.HK_ETF_STOP_LOSS_PCT = float(os.getenv("HK_ETF_STOP_LOSS_PCT", "5.0"))
-        cls.HK_ETF_TAKE_PROFIT_PCT = float(os.getenv("HK_ETF_TAKE_PROFIT_PCT", "8.0"))
-        cls.HK_ETF_STRATEGY = os.getenv("HK_ETF_STRATEGY", "all").lower()
+        cls.HK_ETF_STOP_LOSS_PCT = float(os.getenv("HK_ETF_STOP_LOSS_PCT", "8.0"))
+        cls.HK_ETF_TAKE_PROFIT_PCT = float(os.getenv("HK_ETF_TAKE_PROFIT_PCT", "15.0"))
+        cls.HK_ETF_STRATEGY = os.getenv("HK_ETF_STRATEGY", "trend_cash_3067").lower()
+        cls.HK_LONG_ETF_SYMBOL = os.getenv("HK_LONG_ETF_SYMBOL", "3067.HK").upper()
+        cls.HK_ETF_TREND_FAST = int(os.getenv("HK_ETF_TREND_FAST", "20"))
+        cls.HK_ETF_TREND_SLOW = int(os.getenv("HK_ETF_TREND_SLOW", "50"))
+        cls.HK_ETF_MOMENTUM_PERIOD = int(os.getenv("HK_ETF_MOMENTUM_PERIOD", "20"))
+        cls.HK_ETF_REBALANCE_BARS = int(os.getenv("HK_ETF_REBALANCE_BARS", "5"))
+        cls.HK_SHORT_BEARISH_THRESHOLD = float(os.getenv("HK_SHORT_BEARISH_THRESHOLD", "0.60"))
+        cls.HK_SHORT_EXIT_THRESHOLD = float(os.getenv("HK_SHORT_EXIT_THRESHOLD", "0.30"))
+        cls.HK_ALLOW_NAKED_INVERSE = os.getenv("HK_ALLOW_NAKED_INVERSE", "FALSE").upper() == "TRUE"
+        cls.HK_HEDGE_RATIO = float(os.getenv("HK_HEDGE_RATIO", "0.50"))
 
     @classmethod
     def validate(cls):

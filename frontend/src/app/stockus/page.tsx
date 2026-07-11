@@ -100,6 +100,9 @@ interface Balance {
   net_liquidation: number;
   unrealized_pnl: number;
   currency: string;
+  cash_hkd?: number;
+  net_liquidation_hkd?: number;
+  unrealized_pnl_hkd?: number;
 }
 
 interface Position {
@@ -932,6 +935,9 @@ export default function StockUsHome() {
   };
 
   const isProfit = balance.unrealized_pnl >= 0;
+  const cashHkd = balance.cash_hkd ?? balance.cash * 7.8;
+  const netLiqHkd = balance.net_liquidation_hkd ?? balance.net_liquidation * 7.8;
+  const unrealizedPnlHkd = balance.unrealized_pnl_hkd ?? balance.unrealized_pnl * 7.8;
   const pnlPercent = balance.net_liquidation > 0
     ? (balance.unrealized_pnl / (balance.net_liquidation - balance.unrealized_pnl)) * 100
     : 0;
@@ -982,7 +988,7 @@ export default function StockUsHome() {
               ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Database size={10} /> สกุลเงิน: {balance.currency}
+              <Database size={10} /> เทียบเท่า: {cashHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
             </Typography>
           </CardContent>
         </Card>
@@ -1002,7 +1008,7 @@ export default function StockUsHome() {
               ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              เงินสด + มูลค่าตลาดของหุ้นที่ถือครอง
+              เทียบเท่า: {netLiqHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
             </Typography>
           </CardContent>
         </Card>
@@ -1033,7 +1039,7 @@ export default function StockUsHome() {
                 sx={{ height: 18, fontSize: '0.7rem', fontWeight: 700, borderRadius: '6px' }}
               />
               <Typography variant="caption" color="text.secondary">
-                จากเงินลงทุนทั้งหมด
+                เทียบเท่า: {unrealizedPnlHkd.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} HKD
               </Typography>
             </Box>
           </CardContent>

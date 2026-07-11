@@ -1,0 +1,130 @@
+15524 2026-07-11 10:52:54,928 webull.core.http.initializer.client_initializer INFO _check_token_enable result is False
+15524 2026-07-11 10:52:56,132 webull.core.client ERROR ServerException occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/trade/security",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {
+    "symbol": "00700",
+    "market": "HK",
+    "instrument_super_type": "EQUITY",
+    "instrument_type": "EQUITY",
+    "strike_price": null,
+    "init_exp_date": null
+  },
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-11T03:52:54Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "b1305cc6-c94f-5ed5-a160-f97c594d6730",
+    "x-signature": "C1pz3kmFCbxTVrdpJJt5/QbnDKkfVK6oNU6fMXpaqSQ=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_msg': '404 Route Not Found'} ServerException:HTTP Status: 404, Code: SDK.UnknownServerError, Msg: , RequestID: 1449bad1-15ca-413e-a167-d883b90e006d
+15524 2026-07-11 10:52:56,133 webull.core.client ERROR get_response exception. {
+  "error_code": "SDK.UnknownServerError",
+  "error_msg": "",
+  "http_status": 404,
+  "request_id": "1449bad1-15ca-413e-a167-d883b90e006d"
+}
+15524 2026-07-11 10:52:57,738 webull.core.client ERROR ServerException occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/trade/security",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {
+    "symbol": "00005",
+    "market": "HK",
+    "instrument_super_type": "EQUITY",
+    "instrument_type": "EQUITY",
+    "strike_price": null,
+    "init_exp_date": null
+  },
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-11T03:52:56Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "66ab0206-bf59-559a-9744-b61d165a5342",
+    "x-signature": "QQ4W2vEH9yUBjqMR/5TPTFEfmlyTExHQE+Zs4FUe7FQ=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_msg': '404 Route Not Found'} ServerException:HTTP Status: 404, Code: SDK.UnknownServerError, Msg: , RequestID: 8f1dd794-2aa1-4c48-b18a-d70b20e2785f
+15524 2026-07-11 10:52:57,739 webull.core.client ERROR get_response exception. {
+  "error_code": "SDK.UnknownServerError",
+  "error_msg": "",
+  "http_status": 404,
+  "request_id": "8f1dd794-2aa1-4c48-b18a-d70b20e2785f"
+}
+15524 2026-07-11 10:52:58,911 webull.core.client ERROR ServerException occurred. Host:th-api.uat.webullbroker.com SDK-Version:2.0.11 Request:{
+  "_version": "v2",
+  "_action_name": "/trade/security",
+  "_protocol_type": "https",
+  "_accept_format": "JSON",
+  "_params": {
+    "symbol": "01918",
+    "market": "HK",
+    "instrument_super_type": "EQUITY",
+    "instrument_type": "EQUITY",
+    "strike_price": null,
+    "init_exp_date": null
+  },
+  "_method": "GET",
+  "_header": {
+    "x-version": "v2",
+    "Accept-Encoding": "gzip",
+    "x-app-key": "86d0dac12b1b28de7539f087b2c1dca7",
+    "x-timestamp": "2026-07-11T03:52:57Z",
+    "x-signature-version": "1.0",
+    "x-signature-algorithm": "HMAC-SHA256",
+    "x-signature-nonce": "7d932334-783a-564f-a56d-d5550d825a39",
+    "x-signature": "fNTfIwWRjvuSFrEffMR5Kl0iejtSOaw+oRzCKZj4Tjs=",
+    "User-Agent": "WebullApiSDK (Windows 10;AMD64) Python/3.10.6 Core/2.0.11 python-requests/2.34.2",
+    "x-webull-client-source": "sdk"
+  },
+  "_body_params": null,
+  "_uri_pattern": null,
+  "_uri_params": null,
+  "_content": null,
+  "_extra_user_agent": {},
+  "string_to_sign": "",
+  "_request_connect_timeout": null,
+  "_request_read_timeout": null,
+  "endpoint": "th-api.uat.webullbroker.com",
+  "_signer_spec": "<module 'webull.core.auth.algorithm.sha_hmac1' from 'C:\\\\laragon\\\\bin\\\\python\\\\python-3.10\\\\lib\\\\site-packages\\\\webull\\\\core\\\\auth\\\\algorithm\\\\sha_hmac1.py'>"
+} Response:{'error_msg': '404 Route Not Found'} ServerException:HTTP Status: 404, Code: SDK.UnknownServerError, Msg: , RequestID: 2a515ee9-a703-4912-94ef-3d4849759ec3
+15524 2026-07-11 10:52:58,912 webull.core.client ERROR get_response exception. {
+  "error_code": "SDK.UnknownServerError",
+  "error_msg": "",
+  "http_status": 404,
+  "request_id": "2a515ee9-a703-4912-94ef-3d4849759ec3"
+}

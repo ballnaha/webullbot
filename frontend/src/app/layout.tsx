@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 // ใช้ @fontsource แทน next/font/google เพื่อไม่ต้องออก internet (ไม่ trigger Windows Firewall)
+import "@fontsource/sarabun";
 import "./globals.css";
 import ClientLayout from "frontend/components/ClientLayout";
 

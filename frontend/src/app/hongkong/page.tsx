@@ -529,7 +529,7 @@ export default function HongkongHome() {
   const [formQty, setFormQty] = useState(1);
   const [formInterval, setFormInterval] = useState(60);
   const [formPeriod, setFormPeriod] = useState("m5");
-  const [formStrategy, setFormStrategy] = useState("sma");
+  const [formStrategy, setFormStrategy] = useState("rsi");
   
   // HK Settings Drawer State
   const [settingsDrawerOpen, setSettingsDrawerOpen] = useState(false);
@@ -552,7 +552,7 @@ export default function HongkongHome() {
   const [formHkEtfTradeQty, setFormHkEtfTradeQty] = useState<number>(100);
   const [formHkEtfStopLossPct, setFormHkEtfStopLossPct] = useState<number>(5.0);
   const [formHkEtfTakeProfitPct, setFormHkEtfTakeProfitPct] = useState<number>(8.0);
-  const [formHkEtfStrategy, setFormHkEtfStrategy] = useState<string>("all");
+  const [formHkEtfStrategy, setFormHkEtfStrategy] = useState<string>("trend_cash_3067");
   const [formHkAutoLong, setFormHkAutoLong] = useState<boolean>(true);
   const [formHkAutoShort, setFormHkAutoShort] = useState<boolean>(true);
 
@@ -647,13 +647,13 @@ export default function HongkongHome() {
       setFormHkEtfTradeQty(status.hk_etf_trade_qty !== undefined ? status.hk_etf_trade_qty : 100);
       setFormHkEtfStopLossPct(status.hk_etf_stop_loss_pct !== undefined ? status.hk_etf_stop_loss_pct : 5.0);
       setFormHkEtfTakeProfitPct(status.hk_etf_take_profit_pct !== undefined ? status.hk_etf_take_profit_pct : 8.0);
-      setFormHkEtfStrategy(status.hk_etf_strategy !== undefined ? status.hk_etf_strategy : "all");
+      setFormHkEtfStrategy(status.hk_etf_strategy !== undefined ? status.hk_etf_strategy : "trend_cash_3067");
       setFormHkAutoLong(status.hk_auto_long !== undefined ? status.hk_auto_long : true);
       setFormHkAutoShort(status.enable_inverse_etf_hedging !== undefined ? status.enable_inverse_etf_hedging : true);
 
       setFormInterval(status.interval);
       setFormPeriod(status.candle_period);
-      setFormStrategy(status.strategy);
+      setFormStrategy(status.strategy_hk ?? status.strategy ?? "rsi");
       setIsConfigInitialized(true);
     }
   }, [status, isConfigInitialized]);
@@ -1240,7 +1240,7 @@ export default function HongkongHome() {
                     📈 Long: {(status.strategy_hk !== undefined ? status.strategy_hk : status.strategy).toUpperCase()}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.72rem' }}>
-                    📉 Short: {(status.hk_etf_strategy !== undefined ? status.hk_etf_strategy : "ALL").toUpperCase()}
+                    📈 ETF: {(status.hk_etf_strategy !== undefined ? status.hk_etf_strategy : "TREND_CASH_3067").toUpperCase()}
                   </Typography>
                 </Box>
                 
@@ -1872,7 +1872,8 @@ export default function HongkongHome() {
                       }}
                       disabled={actionLoading}
                     >
-                      <MenuItem value="sma">SMA Crossover (เส้น 10/30)</MenuItem>
+                      <MenuItem value="rsi">RSI 14 Reversal (30/70) — ค่าแนะนำสำหรับทุน 1,000 HKD</MenuItem>
+                      <MenuItem value="sma">SMA Crossover (เส้น 20/50)</MenuItem>
                       <MenuItem value="hybrid">SMA+RSI Hybrid (กลยุทธ์แม่นยำพิเศษ)</MenuItem>
                       <MenuItem value="volume_ema">Volume Spike + EMA Breakout (กลยุทธ์สำหรับทุนน้อย)</MenuItem>
                     </Select>
@@ -2286,10 +2287,10 @@ export default function HongkongHome() {
                       </Box>
                       <Box>
                         <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#a5b4fc', lineHeight: 1.2 }}>
-                          ตั้งค่าป้องกันความเสี่ยง (Inverse ETF Settings)
+                          ตั้งค่ากลยุทธ์ ETF (HK ETF Settings)
                         </Typography>
                         <Typography variant="caption" color="text.secondary">
-                          ตั้งค่าเฉพาะสำหรับการส่งคำสั่งซื้อขายหน่วยลงทุน ETF ขาลง
+                          เลือกกลยุทธ์ Long ETF หรือ Inverse ETF และกำหนดการควบคุมความเสี่ยง
                         </Typography>
                       </Box>
                     </Box>
@@ -2304,7 +2305,7 @@ export default function HongkongHome() {
                       }
                       label={
                         <Typography variant="caption" sx={{ fontWeight: 700, color: formHkAutoShort ? 'primary.light' : 'text.secondary' }}>
-                          {formHkAutoShort ? "บอททำงานอัตโนมัติ (Auto)" : "ปิดการเทรดออโต้"}
+                          {formHkAutoShort ? "ETF Auto เปิดอยู่" : "ETF Auto ปิดอยู่"}
                         </Typography>
                       }
                       sx={{ m: 0, ml: 1 }}
@@ -2319,6 +2320,7 @@ export default function HongkongHome() {
                       onChange={(e) => setFormHkEtfStrategy(e.target.value)}
                       disabled={actionLoading}
                     >
+                      <MenuItem value="trend_cash_3067">3067 Trend + Cash (SMA20/50 + Momentum20) — แนะนำ</MenuItem>
                       <MenuItem value="all">Composite Score (รวมทุกอินดิเคเตอร์)</MenuItem>
                       <MenuItem value="volume_ema">Volume Spike + EMA Breakout</MenuItem>
                       <MenuItem value="sma">SMA Crossover</MenuItem>

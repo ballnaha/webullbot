@@ -31,7 +31,7 @@ bot_state = {
     "bot_hk": None,
     "client": None,
     "strategy_us": "sma",
-    "strategy_hk": "sma",
+    "strategy_hk": "rsi",
     "init_status": "idle",
     "init_error": "",
     "latest_data": {
@@ -102,7 +102,11 @@ def _bg_init_components():
         # Load HK strategy
         add_system_log(f"Loading HK strategy: {Config.STRATEGY_HK}...")
         if Config.STRATEGY_HK == "sma":
-            strategy_hk = get_strategy("sma", fast_period=10, slow_period=30)
+            strategy_hk = get_strategy(
+                "sma",
+                fast_period=Config.HK_SMA_FAST_PERIOD,
+                slow_period=Config.HK_SMA_SLOW_PERIOD,
+            )
         elif Config.STRATEGY_HK == "hybrid":
             strategy_hk = get_strategy("hybrid", fast_period=10, slow_period=30, period=14, oversold=40.0, overbought=60.0)
         elif Config.STRATEGY_HK == "volume_ema":
@@ -259,11 +263,11 @@ class ConfigModel(BaseModel):
     hk_daily_loss_limit_hkd: Optional[float] = None
     # HK ETF Settings
     hk_etf_trade_qty: Optional[int] = 100
-    hk_etf_stop_loss_pct: Optional[float] = 5.0
-    hk_etf_take_profit_pct: Optional[float] = 8.0
-    hk_etf_strategy: Optional[str] = "all"
+    hk_etf_stop_loss_pct: Optional[float] = 8.0
+    hk_etf_take_profit_pct: Optional[float] = 15.0
+    hk_etf_strategy: Optional[str] = "trend_cash_3067"
     hk_auto_long: Optional[bool] = True
-    enable_inverse_etf_hedging: Optional[bool] = True
+    enable_inverse_etf_hedging: Optional[bool] = False
     
     # US ETF Settings
     us_auto_long: Optional[bool] = True
@@ -299,6 +303,8 @@ def get_status():
         "symbols": Config.DEFAULT_SYMBOLS,
         "quantity": Config.TRADE_QUANTITY,
         "quantity_hk": Config.TRADE_QUANTITY_HK,
+        "hk_trade_budget_hkd": Config.HK_TRADE_BUDGET_HKD,
+        "hk_etf_budget_hkd": Config.HK_ETF_BUDGET_HKD,
         "hk_max_slots": Config.HK_MAX_SLOTS,
         "hk_max_price_per_slot": Config.HK_MAX_PRICE_PER_SLOT,
         "hk_max_qty_per_slot": Config.HK_MAX_QTY_PER_SLOT,
@@ -548,6 +554,9 @@ def update_config(data: ConfigModel):
                 f.write(f"TRADE_QUANTITY={data.quantity}\n")
                 qty_hk = data.quantity_hk if data.quantity_hk is not None else 100
                 f.write(f"TRADE_QUANTITY_HK={qty_hk}\n")
+                f.write(f"HK_TRADE_BUDGET_HKD={Config.HK_TRADE_BUDGET_HKD}\n")
+                f.write(f"HK_ETF_BUDGET_HKD={Config.HK_ETF_BUDGET_HKD}\n")
+                f.write(f"HK_DEFAULT_BOARD_LOT={Config.HK_DEFAULT_BOARD_LOT}\n")
                 
                 hk_max_slots = data.hk_max_slots if data.hk_max_slots is not None else Config.HK_MAX_SLOTS
                 hk_max_price_per_slot = data.hk_max_price_per_slot if data.hk_max_price_per_slot is not None else Config.HK_MAX_PRICE_PER_SLOT
@@ -565,13 +574,16 @@ def update_config(data: ConfigModel):
                 strategy_hk = data.strategy_hk if data.strategy_hk else (data.strategy if data.strategy else Config.STRATEGY_HK)
                 f.write(f"STRATEGY_US={strategy_us.lower()}\n")
                 f.write(f"STRATEGY_HK={strategy_hk.lower()}\n")
+                f.write(f"HK_SMA_FAST_PERIOD={Config.HK_SMA_FAST_PERIOD}\n")
+                f.write(f"HK_SMA_SLOW_PERIOD={Config.HK_SMA_SLOW_PERIOD}\n")
                 
                 f.write(f"INTERVAL={data.interval}\n")
                 f.write(f"CANDLE_PERIOD={data.candle_period.lower()}\n")
-                sim_cash = data.simulated_initial_cash if data.simulated_initial_cash is not None else Config.SIMULATED_INITIAL_CASH
                 sim_cash_hkd = data.simulated_initial_cash_hkd if data.simulated_initial_cash_hkd is not None else Config.SIMULATED_INITIAL_CASH_HKD
+                sim_cash = sim_cash_hkd / Config.USD_HKD_RATE
                 f.write(f"SIMULATED_INITIAL_CASH={sim_cash}\n")
                 f.write(f"SIMULATED_INITIAL_CASH_HKD={sim_cash_hkd}\n")
+                f.write(f"USD_HKD_RATE={Config.USD_HKD_RATE}\n")
                 # HK Risk Management
                 hk_sl = data.hk_stop_loss_pct if data.hk_stop_loss_pct is not None else Config.HK_STOP_LOSS_PCT
                 hk_tp = data.hk_take_profit_pct if data.hk_take_profit_pct is not None else Config.HK_TAKE_PROFIT_PCT
@@ -597,6 +609,8 @@ def update_config(data: ConfigModel):
                 f.write(f"HK_ETF_STOP_LOSS_PCT={hk_etf_sl}\n")
                 f.write(f"HK_ETF_TAKE_PROFIT_PCT={hk_etf_tp}\n")
                 f.write(f"HK_ETF_STRATEGY={hk_etf_strat.lower()}\n")
+                f.write(f"HK_SHORT_BEARISH_THRESHOLD={Config.HK_SHORT_BEARISH_THRESHOLD}\n")
+                f.write(f"HK_SHORT_EXIT_THRESHOLD={Config.HK_SHORT_EXIT_THRESHOLD}\n")
                 f.write(f"HK_AUTO_LONG={str(auto_long).upper()}\n")
                 f.write(f"ENABLE_INVERSE_ETF_HEDGING={str(etf_hedging).upper()}\n")
                 
@@ -619,8 +633,8 @@ def update_config(data: ConfigModel):
                 us_etf_sl = data.us_etf_stop_loss_pct if data.us_etf_stop_loss_pct is not None else Config.US_ETF_STOP_LOSS_PCT
                 us_etf_tp = data.us_etf_take_profit_pct if data.us_etf_take_profit_pct is not None else Config.US_ETF_TAKE_PROFIT_PCT
                 us_etf_trail = data.us_etf_trailing_stop_pct if data.us_etf_trailing_stop_pct is not None else Config.US_ETF_TRAILING_STOP_PCT
-                f.write(f"US_STOP_LOSS_PCT={us_sl}\nUS_TAKE_PROFIT_PCT={us_tp}\nUS_TRAILING_STOP_PCT={us_trail}\nUS_MAX_HOLD_DAYS={us_hold}\nUS_DAILY_LOSS_LIMIT_USD={us_daily}\nUS_ETF_STOP_LOSS_PCT={us_etf_sl}\nUS_ETF_TAKE_PROFIT_PCT={us_etf_tp}\nUS_ETF_TRAILING_STOP_PCT={us_etf_trail}\nREGULAR_HOURS_ONLY=TRUE\nUS_MIN_ORDER_VALUE=5.0\n")
-                f.write(f"US_ALLOW_NAKED_INVERSE={str(Config.US_ALLOW_NAKED_INVERSE).upper()}\nUS_HEDGE_RATIO={Config.US_HEDGE_RATIO}\nPAPER_SLIPPAGE_BPS={Config.PAPER_SLIPPAGE_BPS}\nPAPER_FEE_USD={Config.PAPER_FEE_USD}\n")
+                f.write(f"US_STOP_LOSS_PCT={us_sl}\nUS_TAKE_PROFIT_PCT={us_tp}\nUS_TRAILING_STOP_PCT={us_trail}\nUS_MAX_HOLD_DAYS={us_hold}\nUS_DAILY_LOSS_LIMIT_USD={us_daily}\nUS_ETF_STOP_LOSS_PCT={us_etf_sl}\nUS_ETF_TAKE_PROFIT_PCT={us_etf_tp}\nUS_ETF_TRAILING_STOP_PCT={us_etf_trail}\nREGULAR_HOURS_ONLY=TRUE\nUS_MIN_ORDER_VALUE=1.0\n")
+                f.write(f"US_ALLOW_NAKED_INVERSE={str(Config.US_ALLOW_NAKED_INVERSE).upper()}\nUS_HEDGE_RATIO={Config.US_HEDGE_RATIO}\nPAPER_SLIPPAGE_BPS={Config.PAPER_SLIPPAGE_BPS}\nPAPER_FEE_USD={Config.PAPER_FEE_USD}\nPAPER_FEE_HK_RATE={Config.PAPER_FEE_HK_RATE}\n")
             # Force reload Config in-place
             Config.reload_values()
             
@@ -641,8 +655,8 @@ def update_config(data: ConfigModel):
             if Config.TRADE_MODE == "LOCAL_PAPER" and bot_state["client"]:
                 client = bot_state["client"]
                 if hasattr(client, "portfolio") and "balance" in client.portfolio:
-                    client.portfolio["balance"]["cash"] = Config.SIMULATED_INITIAL_CASH
                     client.portfolio["balance"]["cash_hkd"] = Config.SIMULATED_INITIAL_CASH_HKD
+                    client.portfolio["balance"]["cash"] = Config.SIMULATED_INITIAL_CASH_HKD / Config.USD_HKD_RATE
                     client._save_portfolio()
                     add_system_log(f"Simulated cash balances updated to USD: {Config.SIMULATED_INITIAL_CASH}, HKD: {Config.SIMULATED_INITIAL_CASH_HKD}")
                 

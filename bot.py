@@ -29,6 +29,7 @@ class TradingBot:
         self._daily_realized_loss_usd: float = 0.0
         self._recent_submitted: dict = {}
         self._daily_loss_limit_triggered: bool = False
+        self._hk_etf_last_evaluated_bar = None
 
         # Log lists
         self.logs = []
@@ -78,6 +79,9 @@ class TradingBot:
     def _is_inverse_etf(self, symbol: str) -> bool:
         return symbol in set(Config.INVERSE_ETF_MAP.values())
 
+    def _is_hk_etf(self, symbol: str) -> bool:
+        return symbol == Config.HK_LONG_ETF_SYMBOL or self._is_inverse_etf(symbol)
+
     def _closed_bars(self, df: pd.DataFrame) -> pd.DataFrame:
         """Use only completed intraday bars to prevent signals from repainting."""
         if self.candle_period != "d" and len(df) > 3:
@@ -96,7 +100,7 @@ class TradingBot:
                 continue
             if self.market == "HK" and not is_hk:
                 continue
-            is_etf = self._is_inverse_etf(symbol) if self.market == "US" else (symbol.startswith("7") or symbol.startswith("28"))
+            is_etf = self._is_inverse_etf(symbol) if self.market == "US" else self._is_hk_etf(symbol)
             if self.market == "US":
                 sl_pct = Config.US_ETF_STOP_LOSS_PCT if is_etf else Config.US_STOP_LOSS_PCT
                 tp_pct = Config.US_ETF_TAKE_PROFIT_PCT if is_etf else Config.US_TAKE_PROFIT_PCT
@@ -165,6 +169,124 @@ class TradingBot:
         else:
             self.add_log(f"[RISK EXIT] FAILED to place SELL for {symbol}: {order_res.get('reason', 'Unknown')}")
 
+    def _run_hk_aggregate_hedges(self, pos_map: dict, working_symbols: set):
+        """Trade each HK inverse ETF once from the aggregate trend of its constituents."""
+        if (self.market != "HK" or not Config.ENABLE_INVERSE_ETF_HEDGING
+                or Config.HK_ETF_STRATEGY == "trend_cash_3067"):
+            return
+        groups = {}
+        for symbol in self.symbols:
+            etf = Config.INVERSE_ETF_MAP.get(symbol)
+            if etf and symbol.endswith(".HK"):
+                groups.setdefault(etf, []).append(symbol)
+        for etf, symbols in groups.items():
+            bearish = valid = 0
+            for symbol in symbols:
+                df = self._closed_bars(self.client.get_bars(symbol, self.candle_period, limit=100))
+                if len(df) < Config.HK_SMA_SLOW_PERIOD:
+                    continue
+                close = df["close"]
+                fast = close.rolling(Config.HK_SMA_FAST_PERIOD).mean().iloc[-1]
+                slow = close.rolling(Config.HK_SMA_SLOW_PERIOD).mean().iloc[-1]
+                if pd.isna(fast) or pd.isna(slow):
+                    continue
+                valid += 1
+                bearish += int(fast < slow)
+            if not valid:
+                self.add_log(f"HK aggregate hedge {etf}: no valid constituent data.")
+                continue
+            ratio = bearish / valid
+            owned = pos_map.get(etf, {}).get("qty", 0)
+            long_exposure = 0.0
+            for symbol in symbols:
+                pos = pos_map.get(symbol, {})
+                qty = max(0.0, float(pos.get("qty", 0) or 0))
+                market_value = float(pos.get("market_value", 0) or 0)
+                avg_price = float(pos.get("avg_price", 0) or 0)
+                long_exposure += max(market_value, qty * avg_price)
+            self.add_log(f"HK aggregate hedge {etf}: bearish {bearish}/{valid} ({ratio:.0%}).")
+            if self._order_is_working(etf, working_symbols):
+                self.add_log(f"Skipping aggregate hedge {etf}: working order exists.")
+            elif ratio >= Config.HK_SHORT_BEARISH_THRESHOLD and owned <= 0:
+                if long_exposure <= 0 and not Config.HK_ALLOW_NAKED_INVERSE:
+                    self.add_log(f"Skipping aggregate hedge {etf}: no underlying Long exposure (naked inverse disabled).")
+                    continue
+                etf_df = self._closed_bars(self.client.get_bars(etf, self.candle_period, limit=2))
+                price = float(etf_df["close"].iloc[-1]) if not etf_df.empty else 0.0
+                hedge_budget = float(Config.HK_ETF_BUDGET_HKD)
+                if long_exposure > 0:
+                    hedge_budget = min(hedge_budget, long_exposure * float(Config.HK_HEDGE_RATIO))
+                qty = self._hk_budget_qty(etf, price, hedge_budget)
+                if qty <= 0:
+                    self.add_log(f"Skipping aggregate hedge {etf}: budget cannot buy one board lot.")
+                    continue
+                result = self.client.place_order(etf, qty, "BUY", "MKT")
+                self.add_log(f"Aggregate hedge BUY {etf} x{qty}: {result.get('status', 'FAILED')}")
+            elif ratio <= Config.HK_SHORT_EXIT_THRESHOLD and owned > 0:
+                result = self.client.place_order(etf, owned, "SELL", "MKT")
+                self.add_log(f"Aggregate hedge SELL {etf} x{owned}: {result.get('status', 'FAILED')}")
+
+    def _run_hk_long_etf_strategy(self, pos_map: dict, working_symbols: set):
+        """Trade the affordable 3067.HK trend strategy selected by walk-forward tests."""
+        if (self.market != "HK" or not Config.ENABLE_INVERSE_ETF_HEDGING
+                or Config.HK_ETF_STRATEGY != "trend_cash_3067"):
+            return
+        symbol = Config.HK_LONG_ETF_SYMBOL
+        required = max(Config.HK_ETF_TREND_SLOW, Config.HK_ETF_MOMENTUM_PERIOD) + 2
+        df = self._closed_bars(self.client.get_bars(symbol, self.candle_period, limit=required + 10))
+        if len(df) < required:
+            self.add_log(f"HK ETF {symbol}: insufficient data ({len(df)}/{required}).")
+            return
+        latest_bar = df.index[-1]
+        if self._hk_etf_last_evaluated_bar is not None:
+            new_bars = int((df.index > self._hk_etf_last_evaluated_bar).sum())
+            if new_bars < max(1, Config.HK_ETF_REBALANCE_BARS):
+                return
+        self._hk_etf_last_evaluated_bar = latest_bar
+        close = pd.to_numeric(df["close"], errors="coerce")
+        fast = float(close.rolling(Config.HK_ETF_TREND_FAST).mean().iloc[-1])
+        slow = float(close.rolling(Config.HK_ETF_TREND_SLOW).mean().iloc[-1])
+        momentum = float(close.iloc[-1] / close.iloc[-1 - Config.HK_ETF_MOMENTUM_PERIOD] - 1.0)
+        price = float(close.iloc[-1])
+        if any(pd.isna(value) for value in (fast, slow, momentum, price)) or price <= 0:
+            self.add_log(f"HK ETF {symbol}: invalid indicator data.")
+            return
+        invest = fast > slow and momentum > 0
+        owned = float(pos_map.get(symbol, {}).get("qty", 0) or 0)
+        self.add_log(
+            f"HK ETF {symbol}: SMA{Config.HK_ETF_TREND_FAST}={fast:.3f}, "
+            f"SMA{Config.HK_ETF_TREND_SLOW}={slow:.3f}, MOM{Config.HK_ETF_MOMENTUM_PERIOD}={momentum:.2%} "
+            f"=> {'INVEST' if invest else 'CASH'}"
+        )
+        if self._order_is_working(symbol, working_symbols):
+            self.add_log(f"Skipping HK ETF {symbol}: working order exists.")
+        elif invest and owned <= 0:
+            qty = self._hk_budget_qty(symbol, price, Config.HK_ETF_BUDGET_HKD)
+            if qty <= 0:
+                self.add_log(f"Skipping HK ETF {symbol}: budget cannot buy one board lot.")
+                return
+            result = self.client.place_order(symbol, qty, "BUY", "MKT")
+            self.add_log(f"HK ETF trend BUY {symbol} x{qty}: {result.get('status', 'FAILED')}")
+        elif not invest and owned > 0:
+            result = self.client.place_order(symbol, owned, "SELL", "MKT")
+            self.add_log(f"HK ETF trend SELL {symbol} x{owned}: {result.get('status', 'FAILED')}")
+
+    @staticmethod
+    def _hk_budget_qty(symbol: str, price: float, budget_hkd: float) -> int:
+        """Return a whole-board-lot quantity which does not exceed the budget or cap."""
+        if price <= 0 or budget_hkd <= 0:
+            return 0
+        lot_value = Config.HK_BOARD_LOTS.get(symbol)
+        if lot_value is None and Config.PAPER_STRICT_MARKET_RULES:
+            return 0
+        lot = int(lot_value or Config.HK_DEFAULT_BOARD_LOT)
+        lots = int(budget_hkd // (price * lot))
+        qty = lots * lot
+        cap = int(Config.HK_MAX_QTY_PER_SLOT)
+        if cap > 0:
+            qty = min(qty, (cap // lot) * lot)
+        return max(0, qty)
+
     def run_once(self) -> dict:
         self.add_log("Starting trading loop iteration...")
         try:
@@ -192,6 +314,8 @@ class TradingBot:
                 working_symbols = {o.get("symbol") for o in self.client.get_working_orders() if o.get("symbol")}
             except Exception:
                 working_symbols = set()
+            self._run_hk_long_etf_strategy(pos_map, working_symbols)
+            self._run_hk_aggregate_hedges(pos_map, working_symbols)
             for symbol in self.symbols:
                 if self._order_is_working(symbol, working_symbols):
                     self.add_log(f'Skipping {symbol}: working order already exists.')
@@ -211,7 +335,8 @@ class TradingBot:
 
                 # --- Automated ETF Hedging Block ---
                 is_hk = symbol.endswith(".HK")
-                enable_hedging = Config.ENABLE_INVERSE_ETF_HEDGING if is_hk else Config.US_ENABLE_INVERSE_ETF_HEDGING
+                # HK hedges are handled once per ETF above; this legacy block remains for US.
+                enable_hedging = False if is_hk else Config.US_ENABLE_INVERSE_ETF_HEDGING
                 
                 if enable_hedging:
                     etf_symbol = Config.INVERSE_ETF_MAP.get(symbol)
@@ -323,7 +448,7 @@ class TradingBot:
                         if not Config.HK_AUTO_LONG:
                             self.add_log(f"Signal is BUY for HK stock {symbol} but HK Auto-Long is disabled. Skipping stock order.")
                         else:
-                            slot_size = min(self.trade_qty_hk, Config.HK_MAX_QTY_PER_SLOT)
+                            slot_size = self._hk_budget_qty(symbol, current_price, Config.HK_TRADE_BUDGET_HKD)
                             current_slots = int(owned_qty / slot_size) if slot_size > 0 else 0
                             if current_slots >= Config.HK_MAX_SLOTS:
                                 self.add_log(f"Signal is BUY for {symbol} but already own {owned_qty} shares ({current_slots}/{Config.HK_MAX_SLOTS} slots). Skipping.")

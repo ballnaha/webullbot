@@ -23,6 +23,7 @@ const darkTheme = createTheme({
   shape: { borderRadius: 16 },
   typography: {
     fontFamily: "var(--font-sans)",
+    fontSize: 16,
     h6: { fontWeight: 800, letterSpacing: 0 },
     button: { textTransform: "none", fontWeight: 600, borderRadius: 10 },
     overline: { letterSpacing: 0, fontWeight: 700 },
@@ -87,13 +88,13 @@ const darkTheme = createTheme({
       styleOverrides: {
         head: {
           fontWeight: 700,
-          fontSize: '0.8rem',
+          fontSize: '0.875rem',
           color: '#94a3b8',
           textTransform: 'uppercase',
           borderBottom: '1px solid rgba(148, 163, 184, 0.08)',
         },
         body: {
-          fontSize: '0.9rem',
+          fontSize: '0.95rem',
           borderBottom: '1px solid rgba(148, 163, 184, 0.04)',
         },
       },

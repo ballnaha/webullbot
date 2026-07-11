@@ -27,15 +27,18 @@ class LocalPaperTradingClient(BaseTradingClient):
                     self.portfolio = json.load(f)
                 if "last_prices" not in self.portfolio:
                     self.portfolio["last_prices"] = {}
+                self._sync_shared_cash()
             except Exception:
                 self._init_portfolio()
         else:
             self._init_portfolio()
 
     def _init_portfolio(self):
+        from config import Config
+        rate = Config.USD_HKD_RATE
         self.portfolio = {
             "balance": {
-                "cash": self.initial_cash,
+                "cash": self.initial_cash_hkd / rate,
                 "currency": "USD",
                 "cash_hkd": self.initial_cash_hkd,
                 "currency_hkd": "HKD"
@@ -45,6 +48,14 @@ class LocalPaperTradingClient(BaseTradingClient):
             "last_prices": {} # Cache of last known prices
         }
         self._save_portfolio()
+
+    def _sync_shared_cash(self):
+        """Keep USD and HKD views backed by one canonical HKD cash balance."""
+        from config import Config
+        balance = self.portfolio.setdefault("balance", {})
+        if "cash_hkd" not in balance:
+            balance["cash_hkd"] = float(balance.get("cash", self.initial_cash)) * Config.USD_HKD_RATE
+        balance["cash"] = float(balance["cash_hkd"]) / Config.USD_HKD_RATE
 
     def _migrate_positions(self):
         """Backward-compatible migration: à¹€à¸•à¸´à¸¡ entry_time à¹à¸¥à¸° peak_price à¹ƒà¸«à¹‰ positions à¹€à¸”à¸´à¸¡à¸—à¸µà¹ˆà¸¢à¸±à¸‡à¹„à¸¡à¹ˆà¸¡à¸µà¸Ÿà¸´à¸¥à¸”à¹Œà¹€à¸«à¸¥à¹ˆà¸²à¸™à¸µà¹‰"""
@@ -72,8 +83,10 @@ class LocalPaperTradingClient(BaseTradingClient):
 
     def get_account_balance(self) -> dict:
         self._load_portfolio()
-        cash_usd = self.portfolio["balance"].get("cash", self.initial_cash)
-        cash_hkd = self.portfolio["balance"].get("cash_hkd", self.initial_cash * 7.8)
+        from config import Config
+        rate = Config.USD_HKD_RATE
+        cash_hkd = float(self.portfolio["balance"].get("cash_hkd", self.initial_cash_hkd))
+        cash_usd = cash_hkd / rate
         
         total_mv_usd = 0.0
         total_cost_usd = 0.0
@@ -98,11 +111,13 @@ class LocalPaperTradingClient(BaseTradingClient):
                 total_mv_usd += market_value
                 total_cost_usd += cost
 
-        net_liq_usd = cash_usd + total_mv_usd
-        unrealized_pnl_usd = total_mv_usd - total_cost_usd
-
-        net_liq_hkd = cash_hkd + total_mv_hkd
-        unrealized_pnl_hkd = total_mv_hkd - total_cost_hkd
+        # Both pages show the same combined portfolio, expressed in their currency.
+        combined_mv_usd = total_mv_usd + (total_mv_hkd / rate)
+        combined_cost_usd = total_cost_usd + (total_cost_hkd / rate)
+        net_liq_usd = cash_usd + combined_mv_usd
+        unrealized_pnl_usd = combined_mv_usd - combined_cost_usd
+        net_liq_hkd = net_liq_usd * rate
+        unrealized_pnl_hkd = unrealized_pnl_usd * rate
 
         return {
             "cash": cash_usd,
@@ -274,6 +289,29 @@ class LocalPaperTradingClient(BaseTradingClient):
         self._load_portfolio()
         symbol = symbol.upper()
         action = action.upper()
+        from config import Config
+
+        try:
+            qty = float(qty)
+        except (TypeError, ValueError):
+            return {"status": "FAILED", "reason": "Quantity must be numeric"}
+        if not qty > 0 or not qty < float("inf"):
+            return {"status": "FAILED", "reason": "Quantity must be positive and finite"}
+
+        is_hk = symbol.endswith(".HK")
+        if Config.PAPER_STRICT_MARKET_RULES:
+            if is_hk:
+                lot = Config.HK_BOARD_LOTS.get(symbol)
+                if lot is None:
+                    return {"status": "FAILED", "reason": f"Unknown HK board lot for {symbol}; refusing to assume 100"}
+                if action == "BUY" and (not qty.is_integer() or int(qty) % int(lot) != 0):
+                    return {"status": "FAILED", "reason": f"HK BUY quantity must be a multiple of board lot {lot}"}
+            else:
+                fractional = not qty.is_integer()
+                if fractional and symbol not in Config.PAPER_US_FRACTIONAL_SYMBOLS:
+                    return {"status": "FAILED", "reason": f"Fractional trading is not enabled for {symbol}"}
+                if fractional and round(qty, 5) != qty:
+                    return {"status": "FAILED", "reason": "US fractional quantity supports at most 5 decimal places"}
         
         current_price = price if (order_type.upper() == "LMT" and price is not None) else self._get_current_price(symbol)
         
@@ -283,15 +321,17 @@ class LocalPaperTradingClient(BaseTradingClient):
                 "reason": f"Could not determine price for {symbol}"
             }
 
-        is_hk = symbol.endswith(".HK")
-        from config import Config
         slippage = float(getattr(Config, 'PAPER_SLIPPAGE_BPS', 0.0)) / 10000.0
         if order_type.upper() == 'MKT':
             current_price *= (1.0 + slippage) if action == 'BUY' else max(0.0, 1.0 - slippage)
         total_cost = current_price * qty
-        fee = float(getattr(Config, "PAPER_FEE_USD", 0.0)) if not is_hk else 0.0
-        cash_usd = self.portfolio["balance"].get("cash", self.initial_cash)
-        cash_hkd = self.portfolio["balance"].get("cash_hkd", self.initial_cash * 7.8)
+        if Config.PAPER_STRICT_MARKET_RULES and not is_hk and total_cost < 1.0:
+            return {"status": "FAILED", "reason": "US fractional order value must be at least 1 USD"}
+        fee = (total_cost * float(getattr(Config, "PAPER_FEE_HK_RATE", 0.0012))
+               if is_hk else float(getattr(Config, "PAPER_FEE_USD", 0.0)))
+        rate = Config.USD_HKD_RATE
+        cash_hkd = float(self.portfolio["balance"].get("cash_hkd", self.initial_cash_hkd))
+        cash_usd = cash_hkd / rate
         
         cash = cash_hkd if is_hk else cash_usd
         currency_label = "HKD" if is_hk else "USD"
@@ -305,11 +345,11 @@ class LocalPaperTradingClient(BaseTradingClient):
             
             # Deduct cash
             if is_hk:
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd - total_cost - fee
-                self.portfolio["balance"]["cash"] = cash_usd - ((total_cost + fee) / 7.8)
+                new_cash_hkd = cash_hkd - total_cost - fee
             else:
-                self.portfolio["balance"]["cash"] = cash_usd - total_cost - fee
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd - (total_cost * 7.8)
+                new_cash_hkd = cash_hkd - ((total_cost + fee) * rate)
+            self.portfolio["balance"]["cash_hkd"] = new_cash_hkd
+            self.portfolio["balance"]["cash"] = new_cash_hkd / rate
             
             # Update position
             pos = self.portfolio["positions"].get(symbol, {"qty": 0, "avg_price": 0.0})
@@ -336,11 +376,11 @@ class LocalPaperTradingClient(BaseTradingClient):
                 
             # Add to cash
             if is_hk:
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd + total_cost - fee
-                self.portfolio["balance"]["cash"] = cash_usd + ((total_cost - fee) / 7.8)
+                new_cash_hkd = cash_hkd + total_cost - fee
             else:
-                self.portfolio["balance"]["cash"] = cash_usd + total_cost - fee
-                self.portfolio["balance"]["cash_hkd"] = cash_hkd + (total_cost * 7.8)
+                new_cash_hkd = cash_hkd + ((total_cost - fee) * rate)
+            self.portfolio["balance"]["cash_hkd"] = new_cash_hkd
+            self.portfolio["balance"]["cash"] = new_cash_hkd / rate
             
             # Update position
             pos["qty"] -= qty
@@ -361,7 +401,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             "action": action,
             "qty": qty,
             "price": current_price,
-            "total": total_cost
+            "total": total_cost,
+            "fee": fee
         }
         self.portfolio["transactions"].append(tx)
         self._save_portfolio()
@@ -373,7 +414,8 @@ class LocalPaperTradingClient(BaseTradingClient):
             "action": action,
             "qty": qty,
             "price": current_price,
-            "total": total_cost
+            "total": total_cost,
+            "fee": fee
         }
 
     def get_working_orders(self) -> list:
