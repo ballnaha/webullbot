@@ -35,7 +35,7 @@ interface TradeDialogProps {
   onConfirm: (qty: number) => void;
   onCancel: () => void;
   loading?: boolean;
-  /** 'shares' = quantity in shares (HK), 'cash' = quantity in USD budget (US) */
+  /** 'shares' = quantity in shares/units (HK), 'cash' = quantity in USD budget (US) */
   mode?: 'shares' | 'cash';
 }
 
@@ -63,7 +63,7 @@ export default function TradeDialog({
     if (e) e.preventDefault();
     const qtyNum = parseFloat(qty);
     if (isNaN(qtyNum) || qtyNum <= 0) {
-      setError(mode === 'cash' ? 'กรุณาระบุจำนวนเงินที่มากกว่า $0' : 'กรุณาระบุขนาด/น้ำหนักที่มากกว่า 0 kg');
+      setError(mode === 'cash' ? 'กรุณาระบุจำนวนเงินที่มากกว่า $0' : 'กรุณาระบุจำนวนหุ้น/หน่วยที่มากกว่า 0');
       return;
     }
     setError(null);
@@ -87,7 +87,7 @@ export default function TradeDialog({
 
   const inputLabel = isCash
     ? 'ระบุจำนวนเงิน (USD) ที่ต้องการส่งคำสั่ง:'
-    : 'ระบุขนาด/น้ำหนักที่ต้องการส่งคำสั่ง (kg):';
+    : 'ระบุจำนวนหุ้น/หน่วยที่ต้องการส่งคำสั่ง:';
 
   return (
     <Dialog
@@ -235,7 +235,7 @@ export default function TradeDialog({
                   ),
                   endAdornment: (
                     <InputAdornment position="end">
-                      {!isCash && <span style={{ marginRight: 8, fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>kg</span>}
+                      {!isCash && <span style={{ marginRight: 8, fontSize: '0.85rem', color: '#94a3b8', fontWeight: 600 }}>หุ้น</span>}
                       <IconButton 
                         size="small" 
                         onClick={() => {
@@ -292,7 +292,7 @@ export default function TradeDialog({
                     }
                   }}
                 >
-                  {isCash ? `$${q}` : `${q} kg`}
+                  {isCash ? `$${q}` : `${q} หุ้น`}
                 </Button>
               ))}
             </Box>

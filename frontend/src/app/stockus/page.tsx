@@ -984,7 +984,7 @@ export default function StockUsHome() {
                 <Wallet size={18} color="#3b82f6" />
               </Box>
             </Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>
               ${balance.cash.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
             <Typography variant="caption" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
@@ -1004,7 +1004,7 @@ export default function StockUsHome() {
                 <TrendingUp size={18} color="#3b82f6" />
               </Box>
             </Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}>
+            <Typography variant="h4" sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}>
               ${balance.net_liquidation.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
             <Typography variant="caption" color="text.secondary">
@@ -1027,7 +1027,7 @@ export default function StockUsHome() {
             <Typography
               variant="h4"
               color={isProfit ? "success.main" : "error.main"}
-              sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5 }}
+              sx={{ fontWeight: 800, fontFamily: 'var(--font-mono)', mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}
             >
               {isProfit ? "+" : ""}${balance.unrealized_pnl.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </Typography>
@@ -1059,17 +1059,17 @@ export default function StockUsHome() {
             <Typography
               variant="h4"
               color={(status.running_us !== undefined ? status.running_us : status.running) ? "success.main" : "text.secondary"}
-              sx={{ fontWeight: 800, mb: 0.5 }}
+              sx={{ fontWeight: 800, mb: 0.5, fontSize: { xs: '1.5rem', md: '1.8rem' } }}
             >
               {(status.running_us !== undefined ? status.running_us : status.running) ? "RUNNING" : "STANDBY"}
             </Typography>
 
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mt: 0.5 }}>
               <Box sx={{ display: "flex", flexDirection: "column", gap: 0.2 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.72rem' }}>
                   📈 Long: {status.us_auto_long ? (status.strategy_us !== undefined ? status.strategy_us : status.strategy).toUpperCase() : "ปิด (OFF)"}
                 </Typography>
-                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 600 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontWeight: 500, fontSize: '0.72rem' }}>
                   📉 Short: {status.us_enable_inverse_etf_hedging ? (status.us_etf_strategy !== undefined ? status.us_etf_strategy : "standard").toUpperCase() : "ปิด (OFF)"}
                 </Typography>
               </Box>
@@ -1102,10 +1102,10 @@ export default function StockUsHome() {
                 {workspaceTab === 0 ? <Eye size={20} color="#3b82f6" /> : workspaceTab === 1 ? <TrendingDown size={20} color="#f43f5e" /> : workspaceTab === 2 ? <Activity size={20} color="#10b981" /> : <History size={20} color="#6366f1" />}
               </Box>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc' }}>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#f8fafc', fontSize: { xs: '0.95rem', md: '1.05rem' }, lineHeight: 1.25 }}>
                   {workspaceTab === 0 ? "สแกนเนอร์สัญญาณเทรดเรียลไทม์" : workspaceTab === 1 ? "คู่ป้องกันความเสี่ยง Inverse ETF (Short)" : workspaceTab === 2 ? "พอร์ตโฟลิโอสินทรัพย์สหรัฐฯ (Positions)" : "ประวัติการเทรดสหรัฐฯ (US Trade History)"}
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
+                <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.72rem', lineHeight: 1.35 }}>
                   {workspaceTab === 0 ? "วิเคราะห์ราคาปัจจุบันและประเมินทิศทางแนวโน้มตามอินดิเคเตอร์ทางเทคนิค" : workspaceTab === 1 ? "รายการจับคู่หุ้นปกติและกองทุน Inverse ETF สำหรับเก็งกำไรช่วงขาลง" : workspaceTab === 2 ? "สัญญาสมการครองชีพของหลักทรัพย์ที่ถืออยู่ในพอร์ตโฟลิโอขณะนี้" : "ประวัติธุรกรรมซื้อขายหลักทรัพย์สหรัฐฯ ย้อนหลังทั้งหมด"}
                 </Typography>
               </Box>
@@ -1124,6 +1124,7 @@ export default function StockUsHome() {
                     sx={{
                       borderRadius: '8px 0 0 8px',
                       bgcolor: 'rgba(255,255,255,0.02)',
+                      '& .MuiSelect-select': { fontSize: '0.78rem', py: 0.85 },
                       '& .MuiOutlinedInput-notchedOutline': {
                         borderRight: 'none'
                       }
@@ -1154,7 +1155,9 @@ export default function StockUsHome() {
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '0 8px 8px 0',
                       bgcolor: 'rgba(255,255,255,0.02)'
-                    }
+                    },
+                    '& .MuiInputBase-input': { fontSize: '0.78rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.72rem' }
                   }}
                 />
 
@@ -1183,7 +1186,9 @@ export default function StockUsHome() {
                     '& .MuiOutlinedInput-root': {
                       borderRadius: '8px',
                       bgcolor: 'rgba(255,255,255,0.02)'
-                    }
+                    },
+                    '& .MuiInputBase-input': { fontSize: '0.78rem' },
+                    '& .MuiInputLabel-root': { fontSize: '0.72rem' }
                   }}
                 />
 
@@ -1274,11 +1279,12 @@ export default function StockUsHome() {
               onChange={(e, newIdx) => setWorkspaceTab(newIdx)}
               textColor="primary"
               indicatorColor="primary"
+              sx={{ minHeight: 42, '& .MuiTab-root': { minHeight: 42, fontSize: '0.78rem' } }}
             >
-              <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-              <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-              <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
-              <Tab label="📜 ประวัติการเทรด (Trade History)" sx={{ fontWeight: 700, py: 2, textTransform: 'none' }} />
+              <Tab label="📈 หุ้นสแกนขาขึ้น (Long Scanner)" sx={{ fontWeight: 700, py: 1.25, textTransform: 'none' }} />
+              <Tab label="📉 ป้องกันความเสี่ยง Short (Inverse ETFs)" sx={{ fontWeight: 700, py: 1.25, textTransform: 'none' }} />
+              <Tab label="💼 สินทรัพย์ในพอร์ต (Active Positions)" sx={{ fontWeight: 700, py: 1.25, textTransform: 'none' }} />
+              <Tab label="📜 ประวัติการเทรด (Trade History)" sx={{ fontWeight: 700, py: 1.25, textTransform: 'none' }} />
             </Tabs>
           </Box>
 
